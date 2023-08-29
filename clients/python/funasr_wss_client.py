@@ -226,6 +226,7 @@ async def message(id):
             timestamp=""
             if "timestamp" in meg:
                 timestamp = meg["timestamp"]
+                print(meg)
 
             if ibest_writer is not None:
                 if timestamp !="":
