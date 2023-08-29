@@ -1,0 +1,35 @@
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+add_executable(funasr-onnx-offline "funasr-onnx-offline.cpp")
+target_link_libraries(funasr-onnx-offline PUBLIC funasr)
+
+add_executable(funasr-onnx-offline-vad "funasr-onnx-offline-vad.cpp")
+target_link_libraries(funasr-onnx-offline-vad PUBLIC funasr)
+
+add_executable(funasr-onnx-online-vad "funasr-onnx-online-vad.cpp")
+target_link_libraries(funasr-onnx-online-vad PUBLIC funasr)
+
+add_executable(funasr-onnx-online-asr "funasr-onnx-online-asr.cpp")
+target_link_libraries(funasr-onnx-online-asr PUBLIC funasr)
+
+add_executable(funasr-onnx-offline-punc "funasr-onnx-offline-punc.cpp")
+target_link_libraries(funasr-onnx-offline-punc PUBLIC funasr)
+
+add_executable(funasr-onnx-online-punc "funasr-onnx-online-punc.cpp")
+target_link_libraries(funasr-onnx-online-punc PUBLIC funasr)
+
+add_executable(funasr-onnx-offline-rtf "funasr-onnx-offline-rtf.cpp")
+target_link_libraries(funasr-onnx-offline-rtf PUBLIC funasr)
+
+add_executable(funasr-onnx-2pass "funasr-onnx-2pass.cpp")
+target_link_libraries(funasr-onnx-2pass PUBLIC funasr)
+
+add_executable(funasr-onnx-2pass-rtf "funasr-onnx-2pass-rtf.cpp")
+target_link_libraries(funasr-onnx-2pass-rtf PUBLIC funasr)
+
+add_executable(funasr-onnx-online-rtf "funasr-onnx-online-rtf.cpp")
+target_link_libraries(funasr-onnx-online-rtf PUBLIC funasr)
+
+# include_directories(${FFMPEG_DIR}/include)
+# add_executable(ff "ffmpeg.cpp")
+# target_link_libraries(ff PUBLIC avutil avcodec avformat swresample)
