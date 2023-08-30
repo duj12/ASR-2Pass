@@ -1,1 +1,4 @@
 .idea/
+onnxruntime/build*
+websocket/build*
+websocket/models
