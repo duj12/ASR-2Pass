@@ -2,7 +2,7 @@
 build=build  # the build dir
 
 # Build websocket service, with onnxruntime
-if [ ! -f $build/bin/funasr-wss-server-2pass ]; then 
+if [ ! -f $build/bin/funasr-wss-server ]; then 
   echo "1st time run, we need to build the server, which may take a while(especially when fetch from git)."
   if [ ! -d ffmpeg-N-111383-g20b8688092-linux64-gpl-shared ]; then
     bash ../onnxruntime/third_party/download_ffmpeg.sh
@@ -49,7 +49,7 @@ $build/bin/funasr-wss-server  \
   --quantize true  \
   --vad-dir ${vad_dir} \
   --punc-dir ${punc_dir} \
-  # --itn-model-dir ${itn_dir}  \
+  --itn-model-dir ${itn_dir}  \
   --decoder-thread-num ${decoder_thread_num} \
   --io-thread-num  ${io_thread_num} \
   --port ${port} \
