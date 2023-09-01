@@ -35,6 +35,7 @@ itn_dir="damo/fst_itn_zh"
 decoder_thread_num=16
 io_thread_num=4
 port=10096
+quantize=true
 certfile="../ssl_key/server.crt"
 keyfile="../ssl_key/server.key"
 
@@ -50,7 +51,7 @@ $build/bin/funasr-wss-server-2pass  \
   --download-model-dir ${download_model_dir} \
   --model-dir ${model_dir} \
   --online-model-dir ${online_model_dir}  \
-  --quantize true  \
+  --quantize $quantize  \
   --vad-dir ${vad_dir} \
   --punc-dir ${punc_dir} \
   --itn-model-dir ${itn_dir}  \
