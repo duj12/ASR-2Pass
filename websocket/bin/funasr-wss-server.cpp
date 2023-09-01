@@ -161,10 +161,10 @@ int main(int argc, char* argv[]) {
                 down_vad_path  = s_download_model_dir+"/"+s_vad_path;
             }
                 
-            int ret = system(python_cmd_vad.c_str());
-            if(ret !=0){
-                LOG(INFO) << "Failed to download model from modelscope. If you set local vad model path, you can ignore the errors.";
-            }
+            // int ret = system(python_cmd_vad.c_str());
+            // if(ret !=0){
+            //     LOG(INFO) << "Failed to download model from modelscope. If you set local vad model path, you can ignore the errors.";
+            // }
             down_vad_model = down_vad_path+"/model_quant.onnx";
             if(s_vad_quant=="false" || s_vad_quant=="False" || s_vad_quant=="FALSE"){
                 down_vad_model = down_vad_path+"/model.onnx";
@@ -209,10 +209,10 @@ int main(int argc, char* argv[]) {
                 down_asr_path  = s_download_model_dir+"/"+s_asr_path;
             }
                 
-            int ret = system(python_cmd_asr.c_str());
-            if(ret !=0){
-                LOG(INFO) << "Failed to download model from modelscope. If you set local asr model path, you can ignore the errors.";
-            }
+            // int ret = system(python_cmd_asr.c_str());
+            // if(ret !=0){
+            //     LOG(INFO) << "Failed to download model from modelscope. If you set local asr model path, you can ignore the errors.";
+            // }
             down_asr_model = down_asr_path+"/model_quant.onnx";
             if(s_asr_quant=="false" || s_asr_quant=="False" || s_asr_quant=="FALSE"){
                 down_asr_model = down_asr_path+"/model.onnx";
@@ -245,10 +245,10 @@ int main(int argc, char* argv[]) {
                 down_punc_path  = s_download_model_dir+"/"+s_punc_path;
             }
                 
-            int ret = system(python_cmd_punc.c_str());
-            if(ret !=0){
-                LOG(INFO) << "Failed to download model from modelscope. If you set local punc model path, you can ignore the errors.";
-            }
+            // int ret = system(python_cmd_punc.c_str());
+            // if(ret !=0){
+            //     LOG(INFO) << "Failed to download model from modelscope. If you set local punc model path, you can ignore the errors.";
+            // }
             down_punc_model = down_punc_path+"/model_quant.onnx";
             if(s_punc_quant=="false" || s_punc_quant=="False" || s_punc_quant=="FALSE"){
                 down_punc_model = down_punc_path+"/model.onnx";
