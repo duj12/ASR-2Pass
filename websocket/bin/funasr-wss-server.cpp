@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
                     found = s_asr_path.find("speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404");
                     if (found != std::string::npos) {
                         model_path["model-revision"]="v1.0.3";
-                        model_path[QUANTIZE]=false;
+                        // model_path[QUANTIZE]=false;
                         s_asr_quant = false;
                     }
                 }

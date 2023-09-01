@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
               if (found != std::string::npos) 
               {
                   model_path["offline-model-revision"]="v1.0.3";
-                  model_path[QUANTIZE]=false;
+                  // model_path[QUANTIZE]=false;
                   s_asr_quant = false;
               }
           }
