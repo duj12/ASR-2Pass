@@ -212,10 +212,10 @@ async def message(id):
     text_print = ""
     text_print_2pass_online = ""
     text_print_2pass_offline = ""
-    if args.output_dir is not None:
-        ibest_writer = open(os.path.join(args.output_dir, "text.{}".format(id)), "a", encoding="utf-8")
-    else:
-        ibest_writer = None
+    # if args.output_dir is not None:
+    #     ibest_writer = open(os.path.join(args.output_dir, "text.{}".format(id)), "a", encoding="utf-8")
+    # else:
+    #     ibest_writer = None
     try:
        while True:
         
@@ -223,6 +223,10 @@ async def message(id):
             meg = json.loads(meg)
             wav_name = meg.get("wav_name", "demo")
             text = meg["text"]
+            if args.output_dir is not None:
+                ibest_writer = open(os.path.join(args.output_dir, "{}.asr".format(wav_name)), "a", encoding="utf-8")
+            else:
+                ibest_writer = None
             timestamp=""
             if "timestamp" in meg:
                 timestamp = meg["timestamp"]
