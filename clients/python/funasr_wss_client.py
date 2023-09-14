@@ -224,7 +224,7 @@ async def message(id):
             wav_name = meg.get("wav_name", "demo")
             text = meg["text"]
             if args.output_dir is not None:
-                ibest_writer = open(os.path.join(args.output_dir, "{}.asr".format(wav_name)), "a", encoding="utf-8")
+                ibest_writer = open(os.path.join(args.output_dir, "{}.asr.txt".format(wav_name)), "a", encoding="utf-8")
             else:
                 ibest_writer = None
             timestamp=""
