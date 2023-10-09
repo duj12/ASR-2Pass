@@ -43,7 +43,7 @@ keyfile="../ssl_key/server.key"
 
 # Since this model is not released by damo, we choose to download it here
 itn_real_path=$download_model_dir"/"$itn_dir
-if [ ! -d $itn_real_path ]; then 
+if [ $itn_dir != "none" ] && [ ! -d $itn_real_path ]; then 
   git clone https://www.modelscope.cn/thuduj12/fst_itn_zh.git $itn_real_path
 fi
 
