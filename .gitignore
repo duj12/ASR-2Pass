@@ -2,4 +2,4 @@
 onnxruntime/build*
 websocket/build*
 websocket/models
-clients/audio/
+clients/audio/result
