@@ -6,6 +6,7 @@ import asyncio
 # import threading
 import argparse
 import json
+import wave
 import traceback
 from multiprocessing import Process
 # from funasr.fileio.datadir_writer import DatadirWriter
@@ -146,8 +147,8 @@ async def record_from_scp(chunk_begin, chunk_size):
         if wav_path.endswith(".pcm"):
             with open(wav_path, "rb") as f:
                 audio_bytes = f.read()
-        elif wav_path.endswith(".wav"):
-            import wave
+        elif wav_path.endswith(".wav") and 16000 == wave.open(
+            wav_path, "rb").getframerate(): 
             with wave.open(wav_path, "rb") as wav_file:
                 params = wav_file.getparams()
                 frames = wav_file.readframes(wav_file.getnframes())
