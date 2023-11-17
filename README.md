@@ -1,3 +1,17 @@
+# 便捷转写教程
+
+1. 启动服务，第一次启动时会自动编译
+```shell
+bash ./run_prepare_server.sh
+```
+
+2. 在另一个窗口，启动转写
+```shell
+audio_dir=/path/to/your/audios  # 这里需要提供转写音频所在的文件夹，绝对路径。
+bash ./run_transcribe_audio.sh $audio_dir
+```
+
+
 # 服务部署和使用
 
 0, 首先克隆asr-2pass项目
