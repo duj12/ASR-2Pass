@@ -147,12 +147,12 @@ async def record_from_scp(chunk_begin, chunk_size):
         if wav_path.endswith(".pcm"):
             with open(wav_path, "rb") as f:
                 audio_bytes = f.read()
-        elif wav_path.endswith(".wav") and 16000 == wave.open(
-            wav_path, "rb").getframerate(): 
-            with wave.open(wav_path, "rb") as wav_file:
-                params = wav_file.getparams()
-                frames = wav_file.readframes(wav_file.getnframes())
-                audio_bytes = bytes(frames)
+        # elif wav_path.endswith(".wav") and 16000 == wave.open(
+        #     wav_path, "rb").getframerate(): 
+        #     with wave.open(wav_path, "rb") as wav_file:
+        #         params = wav_file.getparams()
+        #         frames = wav_file.readframes(wav_file.getnframes())
+        #         audio_bytes = bytes(frames)
         else:
             import ffmpeg
             try:
@@ -164,7 +164,8 @@ async def record_from_scp(chunk_begin, chunk_size):
                     .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
                 )
             except ffmpeg.Error as e:
-                raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+                audio_bytes = []
+                logging.info(f"Failed to load audio {wav_path}: {e.stderr.decode()}")
 
         # stride = int(args.chunk_size/1000*16000*2)
         stride = int(60 * args.chunk_size[1] / args.chunk_interval / 1000 * 16000 * 2)
@@ -178,22 +179,29 @@ async def record_from_scp(chunk_begin, chunk_size):
         #voices.put(message)
         await websocket.send(message)
         is_speaking = True
-        for i in range(chunk_num):
-
-            beg = i * stride
-            data = audio_bytes[beg:beg + stride]
-            message = data
+        
+        if len(audio_bytes) == 0:
+            message = json.dumps({"is_speaking": False})
             #voices.put(message)
             await websocket.send(message)
-            if i == chunk_num - 1:
-                is_speaking = False
-                message = json.dumps({"is_speaking": is_speaking})
+        else:
+            
+            for i in range(chunk_num):
+
+                beg = i * stride
+                data = audio_bytes[beg:beg + stride]
+                message = data
                 #voices.put(message)
                 await websocket.send(message)
- 
-            sleep_duration = 0.001 if args.mode == "offline" else 60 * args.chunk_size[1] / args.chunk_interval / 1000
-            
-            await asyncio.sleep(sleep_duration)
+                if i == chunk_num - 1:
+                    is_speaking = False
+                    message = json.dumps({"is_speaking": is_speaking})
+                    #voices.put(message)
+                    await websocket.send(message)
+    
+                sleep_duration = 0.001 if args.mode == "offline" else 60 * args.chunk_size[1] / args.chunk_interval / 1000
+                
+                await asyncio.sleep(sleep_duration)
     
     if not args.mode=="offline":
         await asyncio.sleep(2)
@@ -222,6 +230,7 @@ async def message(id):
         
             meg = await websocket.recv()
             meg = json.loads(meg)
+            print(meg)
             wav_name = meg.get("wav_name", "demo")
             text = meg["text"]
             if args.output_dir is not None:
