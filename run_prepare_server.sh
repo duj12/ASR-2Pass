@@ -2,6 +2,8 @@
 
 ASR2PASS_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
+sudo apt-get update && sudo apt-get install libopenblas-dev libssl-dev cmake build-essential
+
 echo "# 第1步, 编译并启动转写服务"
 cd $ASR2PASS_ROOT/websocket
 build=build  # the build dir
