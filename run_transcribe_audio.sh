@@ -6,6 +6,11 @@ audio_dir=$1
 echo "# 转写的音频绝对路径为：$audio_dir"
 
 result_dir=$audio_dir/ASR_result
+if [ -d $result_dir ]; then
+  echo "# 转写结果路径$result_dir已存在，先删除再重新创建"
+  rm -r $result_dir
+fi
+
 mkdir -p $result_dir
 echo "# 转写文本保存绝对路径为：$result_dir"
 
