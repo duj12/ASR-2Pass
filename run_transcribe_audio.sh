@@ -16,11 +16,11 @@ echo "# 转写文本保存绝对路径为：$result_dir"
 
 # step one:
 echo "# 第2.0步, 将转写文件调整格式列到wav.scp文件中"
-find  $audio_dir  -type f | awk -F"/" -v name="" '{name=$NF;  print name"\t"$0 }' | sort > wav.scp
+find  $audio_dir  -type f | awk -F"/" -v name="" -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' | sort > wav.scp
 echo "# 第2.1步, 去除音频路径中带有的空格，将空格替换成-"
 python $ASR2PASS_ROOT/clients/audio/rm_space_in_path.py wav.scp
 echo "# 第2.2步, 重新把全部转写文件路径列入到wav.scp中"
-find  $audio_dir  -type f | awk -F"/" -v name="" '{name=$NF;  print name"\t"$0 }' | sort > wav.scp
+find  $audio_dir  -type f | awk -F"/" -v name="" -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' | sort > wav.scp
 
 total_files=`wc -l wav.scp | awk '{print $1}'`
 echo "# 全部待转写文件数量为： $total_files"
