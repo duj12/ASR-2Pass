@@ -5,7 +5,8 @@ ASR2PASS_ROOT="$(cd "$(dirname "$0")" && pwd)"
 audio_dir=$1
 echo "# 转写的音频绝对路径为：$audio_dir"
 
-if [ "$#" -gt 2 ]; then
+stage=2
+if [ "$#" -ge 2 ]; then
   stage="$2"
 fi
 
@@ -18,6 +19,8 @@ fi
 
 echo "# 转写文本保存绝对路径为：$result_dir"
 sudo mkdir -p $result_dir
+sudo chmod -R 777 $result_dir
+
 
 if [ $stage -le 2 ]; then
 # step one:
