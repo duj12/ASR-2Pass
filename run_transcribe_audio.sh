@@ -5,15 +5,21 @@ ASR2PASS_ROOT="$(cd "$(dirname "$0")" && pwd)"
 audio_dir=$1
 echo "# 转写的音频绝对路径为：$audio_dir"
 
+if [ "$#" -gt 2 ]; then
+  stage="$2"
+fi
+
+
 result_dir=$audio_dir/ASR_result
 if [ -d $result_dir ]; then
   echo "# 转写结果路径$result_dir已存在，先删除再重新创建"
-  rm -r $result_dir
+  sudo rm -rf $result_dir
 fi
 
-mkdir -p $result_dir
 echo "# 转写文本保存绝对路径为：$result_dir"
+sudo mkdir -p $result_dir
 
+if [ $stage -le 2 ]; then
 # step one:
 echo "# 第2.0步, 将转写文件调整格式列到wav.scp文件中"
 find  $audio_dir  -type f | awk -F"/" -v name="" -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' | sort > wav.scp
@@ -24,8 +30,9 @@ find  $audio_dir  -type f | awk -F"/" -v name="" -v root=$audio_dir '{name=$0; g
 
 total_files=`wc -l wav.scp | awk '{print $1}'`
 echo "# 全部待转写文件数量为： $total_files"
+fi
 
-
+if [ $stage -le 3 ]; then 
 # step three:
 echo "# 第3步, 确保配置有python环境, 开始转写..."
 cd $ASR2PASS_ROOT/clients/python
@@ -48,3 +55,4 @@ python funasr_wss_client.py \
 echo
 echo "转写结束，可以回到服务端窗口，按Ctrl+C退出服务端，下次需要转写时再重新启动服务端。"
 echo "再见。"
+fi
