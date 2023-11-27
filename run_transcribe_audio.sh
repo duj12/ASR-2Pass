@@ -34,13 +34,13 @@ find  $audio_dir  -type f | awk -F"/" -v name="" -v root=$audio_dir '{name=$0; g
 fi
 
 if [ $stage -le 3 ]; then 
+total_files=`wc -l wav.scp | awk '{print $1}'`
+echo "# 全部待转写文件数量为： $total_files"
 # step three:
 echo "# 第3步, 确保配置有python环境, 开始转写..."
 cd $ASR2PASS_ROOT/clients/python
 pip install -r requirements_client.txt
 
-total_files=`wc -l wav.scp | awk '{print $1}'`
-echo "# 全部待转写文件数量为： $total_files"
 cpu_num=$((`python -c "import os; print(os.cpu_count())"`))
 thread_num=$((cpu_num / 2))
 if ((total_files > thread_num)); then
