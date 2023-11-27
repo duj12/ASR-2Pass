@@ -31,8 +31,6 @@ python $ASR2PASS_ROOT/clients/audio/rm_space_in_path.py wav.scp
 echo "# 第2.2步, 重新把全部转写文件路径列入到wav.scp中"
 find  $audio_dir  -type f | awk -F"/" -v name="" -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' | sort > wav.scp
 
-total_files=`wc -l wav.scp | awk '{print $1}'`
-echo "# 全部待转写文件数量为： $total_files"
 fi
 
 if [ $stage -le 3 ]; then 
@@ -41,6 +39,8 @@ echo "# 第3步, 确保配置有python环境, 开始转写..."
 cd $ASR2PASS_ROOT/clients/python
 pip install -r requirements_client.txt
 
+total_files=`wc -l wav.scp | awk '{print $1}'`
+echo "# 全部待转写文件数量为： $total_files"
 cpu_num=$((`python -c "import os; print(os.cpu_count())"`))
 thread_num=$((cpu_num / 2))
 if ((total_files > thread_num)); then
