@@ -1,7 +1,7 @@
 #!/bin/bash
 # split the wav scp, calculate duration and merge
 nj=4
-. tools/parse_options.sh || exit 1;
+. utils/parse_options.sh || exit 1;
 
 inscp=$1
 outscp=$2
@@ -20,7 +20,7 @@ split --additional-suffix .slice -d -n l/$nj $inscp $logdir/wav_
 for slice in `ls $logdir/wav_*.slice`; do
 {
     name=`basename -s .slice $slice`
-    tools/wav2dur.py $slice $logdir/$name.shape 1>$logdir/$name.log
+    python3 utils/wav2dur.py $slice $logdir/$name.shape 1>$logdir/$name.log
 } &
 done
 wait

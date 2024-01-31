@@ -18,7 +18,7 @@ with open(scp, "r") as fin:
             new_file = temp[-1]
             new_dir = '/'.join(temp[:-1])
             if not os.path.exists(new_dir):
-                os.mkdir(new_dir)
+                os.makedirs(new_dir, exist_ok=True)
             new_path = os.path.join(new_dir, new_file)
             print(f"move {path} to {new_path}.")
             shutil.move(path, new_path)

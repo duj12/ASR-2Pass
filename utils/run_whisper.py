@@ -49,7 +49,7 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                 logger.warning(f"wav path: {wav} not exist.")
                 continue
             result = model.transcribe(
-                wav, language=args.lang, verbose=True, initial_prompt=prompt)
+                wav, language=args.language, verbose=True, initial_prompt=prompt)
             # we save the transcript result with utt name
             writer(result, utt, {})
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     gpu_list = gpus.split(',')
     gpu_num = len(gpu_list)
     lang = args.language
-    thread_per_gpu = args.num_thread  # 1 thread ~ 11G GPU_memory
+    thread_per_gpu = int(args.num_thread)  # 1 thread ~ 11G GPU_memory
     thread_num = gpu_num * thread_per_gpu  # threads
 
     wav_scp = args.wav_scp
@@ -82,6 +82,7 @@ if __name__ == "__main__":
     for line in f_scp:
         total_len += 1
 
+    thread_num = min(thread_num, total_len)
     logger.info(f"Total wavs: {total_len}. gpus: {gpus}, num threads: {thread_num}.")
     if total_len >= thread_num:
         chunk_size = int(total_len / thread_num)
