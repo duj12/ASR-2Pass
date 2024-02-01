@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 gpu_ids=0,1,2,3,4,5,6,7
-lang=zh
+lang=zh    # support zh, en, now.
 other_format=flv
 stage=0
 stop_stage=5
@@ -26,7 +26,7 @@ if [ $stage -le -1 ] && [ ${stop_stage} -ge -1 ]; then
 
   find  $audio_dir  -type f \( -name "*.$other_format" \) | awk -F"/"  -v name="" \
     -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' | sort > $audio_dir/$other_format.scp
-  echo "# 第0.1步, 去除音频路径中带有的空格，将空格替换成-"
+
   bash $ROOT/clients/audio/convert2wav.sh $audio_dir/$other_format.scp
 
 fi
@@ -94,6 +94,7 @@ if [ $stage -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   echo "# 第4步，使用Paraformer模型进行转写，并计算CER，筛选出CER<=5%的数据"
   bash $ROOT/utils/infer_paraformer.sh  \
       --stage 2  --stop_stage 3  \
+      --language  $lang     \
       --gpuid_list $gpu_ids \
       --batch_size 32  \
       $data_dir $data_acc95_dir

@@ -7,6 +7,7 @@ set -o pipefail
 stage=1
 stop_stage=3
 batch_size=32
+language=zh
 gpu_inference=true    # whether to perform gpu decoding
 model="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
 gpuid_list="0,1,2,3,4,5,6,7"    # set gpus, e.g., gpuid_list="0,1"
@@ -17,6 +18,15 @@ njob=32    # the number of jobs for CPU decoding, if gpu_inference=false, use CP
 data_dir=$1
 filter_dir=$2
 output_dir="$data_dir/result"
+
+if ${language} == "zh"; then
+    model="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
+elif ${language} == "en"; then
+    model="damo/speech_paraformer-large-vad-punc_asr_nat-en-16k-common-vocab10020"
+else
+    echo "language = $language, not support yet."
+    exit 1
+fi
 
 if ${gpu_inference} == "true"; then
     nj=$(echo $gpuid_list | awk -F "," '{print NF}')
