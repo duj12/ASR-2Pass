@@ -93,7 +93,7 @@ fi
 if [ $stage -le 4 ] && [ ${stop_stage} -ge 4 ]; then
   echo "# 第4步，使用Paraformer模型进行转写，并计算CER，筛选出CER<=5%的数据"
   bash $ROOT/utils/infer_paraformer.sh  \
-      --stage 2  --stop_stage 3  \
+      --stage 1  --stop_stage 3  \
       --language  $lang     \
       --gpuid_list $gpu_ids \
       --batch_size 32  \
