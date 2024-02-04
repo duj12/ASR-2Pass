@@ -12,36 +12,35 @@ from multiprocessing import Process
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-# file_handler = logging.FileHandler('app.log')
-# file_handler.setLevel(logging.INFO)
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
-
-
 # global
 timestamp_shift = 0   # 单位ms 经验值，片段结尾时间需要减去此值
-segment_merge_nums = 5   # whisper的转写结果是分段的，每段大约2s, 此值将多个小段合并拼成最后切分的一段音频。
-
+segment_min_second = 10  # 最后保存的音频最短长度s。
 
 def get_file_duration(file_path):
-    ffprobe_cmd = f'ffprobe -v error -show_entries format=duration -of json "{file_path}"'
-    result = subprocess.run(ffprobe_cmd, capture_output=True, text=True, shell=True)
+    ffprobe_cmd = f'ffprobe -v error -show_entries ' \
+                  f'format=duration -of json "{file_path}"'
+    result = subprocess.run(
+        ffprobe_cmd, capture_output=True, text=True, shell=True)
     output = result.stdout
     data = json.loads(output)
     duration = float(data['format']['duration'])
     return duration
 
-def segment_and_convert(input_file, output_file, start_time, end_time, sample_rate=24000, channels=1, sample_width=16):
-    ffmpeg_cmd = f'ffmpeg -y -i "{input_file}" -ss {start_time} -to {end_time} ' \
-                 f'-ar {sample_rate} -ac {channels} -sample_fmt s16 "{output_file}"'
+def segment_and_convert(
+        input_file, output_file, start_time, end_time,
+        sample_rate=24000, channels=1, sample_width=16):
+    ffmpeg_cmd = f'ffmpeg -y -i "{input_file}" -ss {start_time} ' \
+                 f'-to {end_time} -ar {sample_rate} -ac {channels} ' \
+                 f'-sample_fmt s16 "{output_file}"'
     subprocess.call(ffmpeg_cmd, shell=True)
-    print(f"切分并转换完成: {output_file}")
+    print(f"Segment and convert finished: {output_file}")
 
 def process_scp(args, start_idx, chunk_num):
     total_duration = 0.0
@@ -88,7 +87,8 @@ def process_scp(args, start_idx, chunk_num):
             data = data[1:]  # 跳过第一行标题
             if len(data) == 0:
                 logger.warning(
-                    f"wav_path:{wav}, transcription:{spker_id}.tsv is empty, continue.")
+                    f"wav_path:{wav}, transcription:"
+                    f"{spker_id}.tsv is empty, continue.")
                 continue
 
         try:
@@ -104,7 +104,8 @@ def process_scp(args, start_idx, chunk_num):
                 paragraph = line.strip().split('\t')
                 if len(paragraph) != 3:  # 没有转写内容
                     logger.warning(
-                        f"transcription:{spker_id}.tsv TSV format is not 'start\tend\ttext', check it.")
+                        f"transcription:{spker_id}.tsv "
+                        f"format is not 'start\tend\ttext', check it.")
                     continue
                 segment_start_time = float(paragraph[0])
                 if start_time == None:  # 设置第一段时间起始点
@@ -113,8 +114,10 @@ def process_scp(args, start_idx, chunk_num):
                 text = paragraph[2]
                 current_segment_text += text + " "
 
-                if (i + 1) % segment_merge_nums == 0 and start_time < segment_end_time and start_time / 1000.0 < current_duration:
-                    segments_duration += (segment_end_time - start_time) / 1000.0
+                if segment_end_time - start_time >= segment_min_second * 1000 \
+                        and start_time < segment_end_time \
+                        and start_time / 1000.0 < current_duration:
+                    segments_duration += (segment_end_time-start_time) / 1000.0
                     new_uttid = f"{spker_id}_{segment_idx:04d}"
                     segment_filename = f'{spker_dir}/{new_uttid}.wav'
                     fout.write(f"{new_uttid}\t{current_segment_text}\n")
@@ -128,8 +131,9 @@ def process_scp(args, start_idx, chunk_num):
                     segment_idx += 1
 
             # 保存最后一个音频片段，因为总段数不是5的倍数，因此最后一段还没被保存
-            if (i + 1) % segment_merge_nums != 0 and start_time is not None \
-                    and start_time < segment_end_time and start_time / 1000.0 < current_duration:
+            if current_segment_text != "" and start_time is not None \
+                    and start_time < segment_end_time \
+                    and start_time / 1000.0 < current_duration:
                 segments_duration += (segment_end_time - start_time) / 1000.0
                 new_uttid = f"{spker_id}_{segment_idx:04d}"
                 segment_filename = f'{spker_dir}/{new_uttid}.wav'
@@ -143,7 +147,7 @@ def process_scp(args, start_idx, chunk_num):
                 segment_idx += 1
 
         except Exception as e:
-            logger.error(f"Audio write error: {e}")
+            logger.error(f"Audio Segment Error: {e}")
             continue
         else:
             pass
@@ -189,7 +193,8 @@ if __name__ == "__main__":
             now_chunk_size = chunk_size + 1
             remain_wavs = remain_wavs - 1
         # process i handle wavs at chunk_begin and size of now_chunk_size
-        p = Process(target=process_scp, args=(args, chunk_begin, now_chunk_size))
+        p = Process(target=process_scp, args=(
+            args, chunk_begin, now_chunk_size))
         chunk_begin = chunk_begin + now_chunk_size
         p.start()
         process_list.append(p)

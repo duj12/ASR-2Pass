@@ -19,7 +19,6 @@ console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
-
 # file_handler = logging.FileHandler('app.log')
 # file_handler.setLevel(logging.INFO)
 # file_handler.setFormatter(formatter)
@@ -48,10 +47,20 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
             if not os.path.exists(wav):
                 logger.warning(f"wav path: {wav} not exist.")
                 continue
-            result = model.transcribe(
-                wav, language=args.language, verbose=True, initial_prompt=prompt)
-            # we save the transcript result with utt name
-            writer(result, utt, {})
+            tsv_name = os.path.splitext(utt)[0]
+            tsv_path = os.path.join(args.output_dir, f"{tsv_name}.tsv")
+            if os.path.exists(tsv_path):
+                logger.warning(f"tsv path: {tsv_path} exits, continue.")
+                continue
+            try:
+                result = model.transcribe(
+                    wav, language=args.language,
+                    verbose=True, initial_prompt=prompt)
+                # we save the transcript result with utt name
+                writer(result, utt, {})
+            except Exception as e:
+                logger.error(f"Whisper Transcribe Error: {e}")
+                continue
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
@@ -83,7 +92,8 @@ if __name__ == "__main__":
         total_len += 1
 
     thread_num = min(thread_num, total_len)
-    logger.info(f"Total wavs: {total_len}. gpus: {gpus}, num threads: {thread_num}.")
+    logger.info(f"Total wavs: {total_len}. gpus: {gpus}, "
+                f"num threads: {thread_num}.")
     if total_len >= thread_num:
         chunk_size = int(total_len / thread_num)
         remain_wavs = total_len - chunk_size * thread_num
