@@ -1,3 +1,11 @@
+# 数据切分，转写，筛选流程
+```shell
+src_dir=/path/to/your/src/audio/  # 原始需要清洗的长音频/长视频所在路径
+tgt_dir=/path/to/your/tgt/audio   # 最终清洗后的短音频和文本等kaldi格式数据保存路径
+bash ./run_seg_asr_filter.sh  $src_dir  $tgt_dir 
+```
+
+
 # 便捷转写教程
 
 1. 启动服务，第一次启动时会自动编译
