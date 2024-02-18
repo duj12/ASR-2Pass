@@ -96,7 +96,7 @@ if [ $stage -le 4 ] && [ ${stop_stage} -ge 4 ]; then
       --stage 1  --stop_stage 3  \
       --language  $lang     \
       --gpuid_list $gpu_ids \
-      --batch_size 32  \
+      --batch_size 16  \
       $data_dir $data_acc95_dir
 
 fi

@@ -19,9 +19,9 @@ data_dir=$1
 filter_dir=$2
 output_dir="$data_dir/result"
 
-if ${language} == "zh"; then
+if [ ${language} == "zh" ]; then
     model="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
-elif ${language} == "en"; then
+elif [ ${language} == "en" ]; then
     model="damo/speech_paraformer-large-vad-punc_asr_nat-en-16k-common-vocab10020"
 else
     echo "language = $language, not support yet."

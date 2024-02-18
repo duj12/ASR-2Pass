@@ -12,8 +12,10 @@ with open(scp, "r") as fin:
         # if not os.path.exists(path):
         #     print(f"{path} not exists, jump.")
         #     continue
-        if ' ' in path:
+        if ' ' in path or '.' in path:
             new_path = path.replace(" ", "-", -1)
+            new_path = new_path.replace(".", "-", -1)
+
             temp = new_path.split('/')
             new_file = temp[-1]
             new_dir = '/'.join(temp[:-1])

@@ -70,8 +70,10 @@ def process_scp(args, start_idx, chunk_num):
 
         # 保存路径
         spker_dir = f"{segment_save_path}/{spker_id}"
+        # 处理可能存在.号导致的文件夹创建失败。
+        spker_dir = spker_dir.replace(".", "-", -1)
         if not os.path.exists(spker_dir):
-            os.makedirs(spker_dir)
+            os.makedirs(spker_dir, exist_ok=True)
         text_file_path = f"{spker_dir}/transcription.txt"
         if os.path.exists(text_file_path):
             # continue  # 已经切分过，跳过。
