@@ -53,7 +53,7 @@ def process_scp(args, start_idx, chunk_num):
         if not i in range(start_idx, start_idx + chunk_num):
             continue
 
-        line = line.strip().split()
+        line = line.strip().split("\t")
         if not len(line) == 2:
             logger.warning(f"line: {line} not in kaldi format.")
             continue

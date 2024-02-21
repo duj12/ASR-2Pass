@@ -1,6 +1,7 @@
-whisper
+openai-whisper
 tqdm
 wetextprocessing
 ffmpeg-python
 funasr==0.7.0
-modelscope[audio]==1.8.0 -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
+modelscope==1.8.0 -f https://modelscope.oss-cn-beijing.aliyuncs.com/releases/repo.html
+-i https://pypi.tuna.tsinghua.edu.cn/simple

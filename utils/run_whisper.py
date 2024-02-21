@@ -26,7 +26,6 @@ logger.addHandler(console_handler)
 
 # global
 output_format = "tsv"
-prompt = '以下是普通话的句子'
 
 
 def process_scp(args, gpu_id, start_idx, chunk_num):
@@ -39,7 +38,7 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
             if not i in range(start_idx, start_idx+chunk_num):
                 continue
 
-            line = line.strip().split()
+            line = line.strip().split('\t')
             if not len(line) == 2:
                 logger.warning(f"line: {line} not in kaldi format.")
                 continue
@@ -53,6 +52,10 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                 logger.warning(f"tsv path: {tsv_path} exits, continue.")
                 continue
             try:
+                if args.lang == 'zh':
+                    prompt = '以下是普通话的句子'
+                else:
+                    prompt = ""
                 result = model.transcribe(
                     wav, language=args.language,
                     verbose=True, initial_prompt=prompt)
