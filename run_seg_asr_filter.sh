@@ -32,15 +32,15 @@ if [ $stage -le -1 ] && [ ${stop_stage} -ge -1 ]; then
 fi
 
 
-# prepare wav.scp, find all wav and mp4 files
+# prepare wav.scp, find all wav and mp4 files  \( -name "*.wav" -o -name "*.mp4" \)
 if [ $stage -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "# 第0.0步, 将转写文件调整格式列到wav.scp文件中"
-  find  $audio_dir  -type f \( -name "*.wav" -o -name "*.mp4" \) | awk -F"/"  -v name="" \
+  find  $audio_dir  -type f  | awk -F"/"  -v name="" \
     -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' > $audio_dir/wav.scp
   echo "# 第0.1步, 去除音频路径中带有的空格，将空格替换成-, 文件名限定在15个字以内"
   python3 $ROOT/clients/audio/rm_space_in_path.py $audio_dir/wav.scp
   echo "# 第0.2步, 重新把全部转写文件路径列入到wav.scp中"
-  find  $audio_dir  -type f \( -name "*.wav" -o -name "*.mp4" \) | awk -F"/" -v name="" \
+  find  $audio_dir  -type f | awk -F"/" -v name="" \
     -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' > $audio_dir/wav.scp
 
 fi
@@ -74,7 +74,8 @@ if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   echo "# 第3步，准备转写所需的kaldi格式数据，至少包含wav.scp和text，过滤掉[0.5, 40]s之外的音频段"
   find  $segment_dir  -type f  -name "*.wav" | awk -F"/"  -v name="" \
      '{name=$NF; gsub(".wav","",name); print name"\t"$0 }' | sort > $data_dir/wav.scp
-  cat  $segment_dir/*/transcription.txt | sort > $data_dir/text
+  # cat  $segment_dir/*/transcription.txt | sort > $data_dir/text
+  find $segment_dir -name "transcription.txt" -print0 | xargs -0 cat > $data_dir/text
   find  $segment_dir  -type f  -name "*.wav" | awk -F"/"  -v name="" \
      '{name=$NF; gsub(".wav","",name); print name"\t"$(NF-1) }' | sort > $data_dir/utt2spk
   bash $ROOT/utils/wav_to_duration.sh --nj 48 $data_dir/wav.scp  $data_dir/wav2dur
