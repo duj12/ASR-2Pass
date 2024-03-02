@@ -52,7 +52,7 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                 logger.warning(f"tsv path: {tsv_path} exits, continue.")
                 continue
             try:
-                if args.lang == 'zh':
+                if args.language == 'zh':
                     prompt = '以下是普通话的句子'
                 else:
                     prompt = ""

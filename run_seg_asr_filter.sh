@@ -53,7 +53,7 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
       -i  $audio_dir/wav.scp \
       -o  $result_dir \
       -g  $gpu_ids  \
-      -n  4         \
+      -n  3         \
       -l  $lang
 
 fi
