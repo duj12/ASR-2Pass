@@ -22,7 +22,7 @@ output_dir="$data_dir/result"
 if [ ${language} == "zh" ]; then
     model="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-pytorch"
 elif [ ${language} == "en" ]; then
-    model="damo/speech_paraformer-large-vad-punc_asr_nat-en-16k-common-vocab10020"
+    model="iic/speech_paraformer_asr-en-16k-vocab4199-1B-pytorch"
 else
     echo "language = $language, not support yet."
     exit 1
