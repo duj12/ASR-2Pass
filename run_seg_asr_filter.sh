@@ -18,7 +18,7 @@ echo "# 最终的保存音频路径为：$output_dir"
 result_dir=$audio_dir/whisper_transcript   # 第一遍转写结果路径
 segment_dir=$audio_dir/whisper_segment     # 切分后音频保存路径
 data_dir=$audio_dir/data                   # 切分音频kaldi格式数据路径
-data_acc95_dir=$data_dir/acc95             # 筛选后kaldi格式数据路径
+data_acc95_dir=$data_dir/delins2             # 筛选后kaldi格式数据路径
 
 # convert other format to wav
 if [ $stage -le -1 ] && [ ${stop_stage} -ge -1 ]; then
@@ -53,7 +53,7 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
       -i  $audio_dir/wav.scp \
       -o  $result_dir \
       -g  $gpu_ids  \
-      -n  3         \
+      -n  2         \
       -l  $lang
 
 fi

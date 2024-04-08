@@ -76,8 +76,9 @@ def process_scp(args, start_idx, chunk_num):
             os.makedirs(spker_dir, exist_ok=True)
         text_file_path = f"{spker_dir}/transcription.txt"
         if os.path.exists(text_file_path):
-            # continue  # 已经切分过，跳过。
-            pass
+            logging.warning(f"{text_file_path} already exists, pass.")
+            continue  # 已经切分过，跳过。
+            # pass
 
         fout = open(text_file_path, 'w', encoding='utf-8')
 

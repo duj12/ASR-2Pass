@@ -17,6 +17,7 @@ njob=32    # the number of jobs for CPU decoding, if gpu_inference=false, use CP
 
 data_dir=$1
 filter_dir=$2
+mkdir -p ${filter_dir}
 output_dir="$data_dir/result"
 
 if [ ${language} == "zh" ]; then
@@ -91,32 +92,39 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ];then
         ${output_dir}/1best_recog/ref.txt \
         ${output_dir}/1best_recog/text > \
         ${output_dir}/1best_recog/wer.txt
-    awk '/utt:/ { utt=$2 } /WER:/ { print utt, $2 }' \
-        ${output_dir}/1best_recog/wer.txt > \
-        ${data_dir}/utt2wer
 
 fi
 
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
-    echo "Filter utt whose WER <= 5% ..."
-    mkdir -p ${filter_dir}
-    cat ${data_dir}/utt2wer | awk '{if($2<=5) print $0}' > ${filter_dir}/utt2wer
+#    echo "Filter utt whose WER <= 5% ..."
+#    awk '/utt:/ { utt=$2 } /WER:/ { print utt, $2 }' \
+#        ${output_dir}/1best_recog/wer.txt > \
+#        ${data_dir}/utt2wer
+#    mkdir -p ${filter_dir}
+#    cat ${data_dir}/utt2wer | awk '{if($2<=5) print $0}' > ${filter_dir}/utt2wer
+    # WER 的结果只能反应两个识别模型的一致性，不能很好地反映音频质量。
+    # 可以直接通过插入和删除的数量(不超过2个字/词)去筛选数据。替换错误往往是同音字。
+    echo "Filter utt whose Deletion and Insertion Error less than 2 ..."
+    awk -F '[= ]' '/utt:/ { utt=$2 } /WER:/ { del=$11; ins=$13; print(utt"\t"del+ins) }' \
+        ${output_dir}/1best_recog/wer.txt > \
+        ${data_dir}/utt2delins
+    cat ${data_dir}/utt2delins | awk '{if($2<=2) print $0}' > ${filter_dir}/utt2delins
     # use the recognized text as text pseudo label. 避免Whisper的正则文本和实际发音不一致。
     if [ ! -f ${data_dir}/text_whiper ] ;then
       mv ${data_dir}/text ${data_dir}/text_whiper
     fi
-    python3 ./utils/remove_space_between_chinese.py ${output_dir}/1best_recog/text ${data_dir}/text 1
+    # python3 ./utils/remove_space_between_chinese.py ${output_dir}/1best_recog/text ${data_dir}/text 1
     for file_name in wav.scp text; do
-      perl utils/filter_scp.pl  ${filter_dir}/utt2wer ${data_dir}/$file_name > ${filter_dir}/$file_name
+      perl utils/filter_scp.pl  ${filter_dir}/utt2delins ${data_dir}/$file_name > ${filter_dir}/$file_name
     done
     if [ -f ${data_dir}/wav2dur ]; then
-      perl utils/filter_scp.pl  ${filter_dir}/utt2wer ${data_dir}/wav2dur > ${filter_dir}/wav2dur
+      perl utils/filter_scp.pl  ${filter_dir}/utt2delins ${data_dir}/wav2dur > ${filter_dir}/wav2dur
       dur_ori=`cat ${data_dir}/wav2dur | awk -v total=0.0 '{total+=$2 } END{print total/3600}'`
       dur=`cat ${filter_dir}/wav2dur | awk -v total=0.0 '{total+=$2 } END{print total/3600}'`
       echo "Total duration $dur_ori hours, WER<=5% duration $dur hours."
     fi
     if [ -f ${data_dir}/utt2spk ]; then
-      perl utils/filter_scp.pl  ${filter_dir}/utt2wer ${data_dir}/utt2spk > ${filter_dir}/utt2spk
+      perl utils/filter_scp.pl  ${filter_dir}/utt2delins ${data_dir}/utt2spk > ${filter_dir}/utt2spk
       perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/utt2spk > ${filter_dir}/spk2utt
     fi
 
