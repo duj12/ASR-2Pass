@@ -13,14 +13,17 @@ with open(scp, 'r') as f, open(dur_scp, 'w') as fout:
     cnt = 0
     total_duration = 0
     for l in f:
-        items = l.strip().split()
+        items = l.strip().split('\t')
         wav_id = items[0]
         fname = items[1]
         cnt += 1
-        waveform, rate = torchaudio.load(fname)
-        frames = len(waveform[0])
-        duration = frames / float(rate)
-        total_duration += duration
-        fout.write('{} {}\n'.format(wav_id, duration))
+        try:
+            waveform, rate = torchaudio.load(fname)
+            frames = len(waveform[0])
+            duration = frames / float(rate)
+            total_duration += duration
+            fout.write('{} {}\n'.format(wav_id, duration))
+        except Exception as e:
+            print(e)
     print('process {} utts'.format(cnt))
     print('total {} s'.format(total_duration))

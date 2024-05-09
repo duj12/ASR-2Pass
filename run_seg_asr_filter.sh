@@ -12,12 +12,13 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 audio_dir=$1                               # 原始音频wav/视频mp4路径
 output_dir=$2                              # 切分转写筛选后的数据路径
+mkdir -p $output_dir
 echo "# 转写的音频绝对路径为：$audio_dir"
 echo "# 最终的保存音频路径为：$output_dir"
 
-result_dir=$audio_dir/whisper_transcript   # 第一遍转写结果路径
-segment_dir=$audio_dir/whisper_segment     # 切分后音频保存路径
-data_dir=$audio_dir/data                   # 切分音频kaldi格式数据路径
+result_dir=$output_dir/whisper_transcript   # 第一遍转写结果路径
+segment_dir=$output_dir/whisper_segment     # 切分后音频保存路径
+data_dir=$output_dir/data                   # 切分音频kaldi格式数据路径
 data_acc95_dir=$data_dir/delins2             # 筛选后kaldi格式数据路径
 
 # convert other format to wav
@@ -25,9 +26,9 @@ if [ $stage -le -1 ] && [ ${stop_stage} -ge -1 ]; then
   echo "# 第-1步，转换其他音频的格式，需要指定音频格式: other_format=$other_format"
 
   find  $audio_dir  -type f \( -name "*.$other_format" \) | awk -F"/"  -v name="" \
-    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' | sort > $audio_dir/$other_format.scp
+    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' | sort > $output_dir/$other_format.scp
 
-  bash $ROOT/clients/audio/convert2wav.sh $audio_dir/$other_format.scp
+  bash $ROOT/clients/audio/convert2wav.sh $output_dir/$other_format.scp
 
 fi
 
@@ -36,12 +37,12 @@ fi
 if [ $stage -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "# 第0.0步, 将转写文件调整格式列到wav.scp文件中"
   find  $audio_dir  -type f  | awk -F"/"  -v name="" \
-    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' > $audio_dir/wav.scp
-  echo "# 第0.1步, 去除音频路径中带有的空格，将空格替换成-, 文件名限定在15个字以内"
-  python3 $ROOT/clients/audio/rm_space_in_path.py $audio_dir/wav.scp
-  echo "# 第0.2步, 重新把全部转写文件路径列入到wav.scp中"
-  find  $audio_dir  -type f | awk -F"/" -v name="" \
-    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' > $audio_dir/wav.scp
+    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' > $output_dir/wav.scp
+#  echo "# 第0.1步, 去除音频路径中带有的空格，将空格替换成-, 文件名限定在15个字以内"
+#  python3 $ROOT/clients/audio/rm_space_in_path.py $output_dir/wav.scp
+#  echo "# 第0.2步, 重新把全部转写文件路径列入到wav.scp中"
+#  find  $audio_dir  -type f | awk -F"/" -v name="" \
+#    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' > $output_dir/wav.scp
 
 fi
 
@@ -50,10 +51,10 @@ fi
 if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
   echo "# 第1步，使用Whisper-large-v3模型转写。"
   python3 $ROOT/utils/run_whisper.py  \
-      -i  $audio_dir/wav.scp \
+      -i  $output_dir/wav.scp \
       -o  $result_dir \
       -g  $gpu_ids  \
-      -n  2         \
+      -n  1         \
       -l  $lang
 
 fi
@@ -62,7 +63,7 @@ fi
 if [ $stage -le 2 ] && [ ${stop_stage} -ge 2 ]; then
   echo "# 第2步，根据转写得到的时间戳对音视频进行切分，得到切分后的wav。"
   python3 $ROOT/utils/segment_whisper_tsv.py  \
-    -i  $audio_dir/wav.scp \
+    -i  $output_dir/wav.scp \
     -t  $result_dir  \
     -o  $segment_dir  \
     -n  48
@@ -71,6 +72,7 @@ fi
 
 # prepare wav.scp, text... find all segments.
 if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+  mkdir -p $data_dir
   echo "# 第3步，准备转写所需的kaldi格式数据，至少包含wav.scp和text，过滤掉[0.5, 40]s之外的音频段"
   find  $segment_dir  -type f  -name "*.wav" | awk -F"/"  -v name="" \
      '{name=$NF; gsub(".wav","",name); print name"\t"$0 }' | sort > $data_dir/wav.scp
@@ -92,7 +94,8 @@ if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
 fi
 
 if [ $stage -le 4 ] && [ ${stop_stage} -ge 4 ]; then
-  echo "# 第4步，使用Paraformer模型进行转写，并计算CER，筛选出CER<=5%的数据"
+  mkdir -p $data_acc95_dir
+  echo "# 第4步，使用Paraformer模型进行转写，并计算CER，筛选出插入错误+删除错误小于2，且CER<=30%的数据"
   bash $ROOT/utils/infer_paraformer.sh  \
       --stage 1  --stop_stage 3  \
       --language  $lang     \

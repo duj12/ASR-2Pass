@@ -211,8 +211,14 @@ class Calculator :
 def width(string):
   return sum(1 + (unicodedata.east_asian_width(c) in "AFW") for c in string)
 
+def get_unicode_name(char):
+    try:
+        return unicodedata.name(char)
+    except ValueError:
+        return "Other"
+
 def default_cluster(word) :
-  unicode_names = [ unicodedata.name(char) for char in word ]
+  unicode_names = [ get_unicode_name(char) for char in word ]
   for i in reversed(range(len(unicode_names))) :
     if unicode_names[i].startswith('DIGIT') :  # 1
       unicode_names[i] = 'Number'  # 'DIGIT'

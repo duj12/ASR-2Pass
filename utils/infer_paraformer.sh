@@ -79,13 +79,13 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ];then
     if [ -f ${data_dir}/text_whiper ] ;then
       mv ${data_dir}/text_whiper ${data_dir}/text
     fi
-    echo "SpeechIO TIOBE textnorm"
-    echo "$0 --> Normalizing REF text ..."
-    python3 ./utils/textnorm_zh.py \
-        --has_key --to_lower \
-        ${data_dir}/text \
-        ${output_dir}/1best_recog/ref.txt
-
+    if [ ! -f ${output_dir}/1best_recog/ref.txt ] ; then
+      echo "$0 --> Normalizing REF text ..."
+      python3 ./utils/textnorm_zh.py \
+          --has_key --to_lower \
+          ${data_dir}/text \
+          ${output_dir}/1best_recog/ref.txt
+    fi
     echo "$0 --> computing WER/CER and alignment ..."
 
     python3 ./utils/compute-wer.py --char=1 --v=1 \
@@ -96,24 +96,29 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ];then
 fi
 
 if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
-#    echo "Filter utt whose WER <= 5% ..."
-#    awk '/utt:/ { utt=$2 } /WER:/ { print utt, $2 }' \
-#        ${output_dir}/1best_recog/wer.txt > \
-#        ${data_dir}/utt2wer
-#    mkdir -p ${filter_dir}
-#    cat ${data_dir}/utt2wer | awk '{if($2<=5) print $0}' > ${filter_dir}/utt2wer
+    echo "Filter utt whose WER <= 30% ..."
+    awk '/utt:/ { utt=$2 } /WER:/ { print utt, $2 }' \
+        ${output_dir}/1best_recog/wer.txt > \
+        ${data_dir}/utt2wer
+    mkdir -p ${filter_dir}
+    cat ${data_dir}/utt2wer | awk '{if($2<=30) print $0}' > ${filter_dir}/utt2wer
     # WER 的结果只能反应两个识别模型的一致性，不能很好地反映音频质量。
     # 可以直接通过插入和删除的数量(不超过2个字/词)去筛选数据。替换错误往往是同音字。
     echo "Filter utt whose Deletion and Insertion Error less than 2 ..."
     awk -F '[= ]' '/utt:/ { utt=$2 } /WER:/ { del=$11; ins=$13; print(utt"\t"del+ins) }' \
         ${output_dir}/1best_recog/wer.txt > \
         ${data_dir}/utt2delins
-    cat ${data_dir}/utt2delins | awk '{if($2<=2) print $0}' > ${filter_dir}/utt2delins
+    cat ${data_dir}/utt2delins | awk '{if($2<=2) print $0}' > ${filter_dir}/utt2delins0
+
+    # 因为Whisper对英文语音指定解码中文时会自动翻译结果，导致WER结果可能出现S很大，D+I很小的情况， 这里直接限制WER本身不要超过一定数值。
+    echo "Filter utt whose D+I <=2 and WER<=30%. "
+    perl utils/filter_scp.pl  ${filter_dir}/utt2delins0 ${filter_dir}/utt2wer > ${filter_dir}/utt2delins
+
     # use the recognized text as text pseudo label. 避免Whisper的正则文本和实际发音不一致。
     if [ ! -f ${data_dir}/text_whiper ] ;then
       mv ${data_dir}/text ${data_dir}/text_whiper
     fi
-    # python3 ./utils/remove_space_between_chinese.py ${output_dir}/1best_recog/text ${data_dir}/text 1
+    python3 ./utils/remove_space_between_chinese.py ${output_dir}/1best_recog/text ${data_dir}/text 1
     for file_name in wav.scp text; do
       perl utils/filter_scp.pl  ${filter_dir}/utt2delins ${data_dir}/$file_name > ${filter_dir}/$file_name
     done
