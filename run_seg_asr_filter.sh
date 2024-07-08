@@ -4,7 +4,7 @@ gpu_ids=0,1,2,3,4,5,6,7
 lang=zh    # support zh, en, now.
 other_format=flv
 stage=0
-stop_stage=5
+stop_stage=4
 
 . ./utils/parse_options.sh  ||  exit 1;
 
@@ -54,7 +54,7 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
       -i  $output_dir/wav.scp \
       -o  $result_dir \
       -g  $gpu_ids  \
-      -n  1         \
+      -n  2         \
       -l  $lang
 
 fi
@@ -103,15 +103,4 @@ if [ $stage -le 4 ] && [ ${stop_stage} -ge 4 ]; then
       --batch_size 16  \
       $data_dir $data_acc95_dir
 
-fi
-
-
-if [ $stage -le 5 ] && [ ${stop_stage} -ge 5 ]; then
-  echo "# 第5步，将筛选出来的数据复制到给定路径"
-  python3 $ROOT/utils/copy_wav_from_scp.py \
-      -i  $data_acc95_dir/wav.scp  \
-      -o  $output_dir      \
-      -n  48
-  #  将kaldi格式数据路径也保存到$output_dir
-  cp -r $data_acc95_dir $output_dir/
 fi

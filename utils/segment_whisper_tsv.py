@@ -8,6 +8,7 @@ import subprocess
 import json
 from tqdm import tqdm
 from multiprocessing import Process
+from pydub import AudioSegment
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,7 @@ logger.addHandler(console_handler)
 # global
 timestamp_shift = 0   # 单位ms 经验值，片段结尾时间需要减去此值
 segment_min_second = 10  # 最后保存的音频最短长度s。
+target_sample_rate = 24000
 
 def get_file_duration(file_path):
     ffprobe_cmd = f'ffprobe -v error -show_entries ' \
@@ -35,7 +37,7 @@ def get_file_duration(file_path):
 
 def segment_and_convert(
         input_file, output_file, start_time, end_time,
-        sample_rate=24000, channels=1, sample_width=16):
+        sample_rate=target_sample_rate, channels=1, sample_width=16):
     ffmpeg_cmd = f'ffmpeg -y -i "{input_file}" -ss {start_time} ' \
                  f'-to {end_time} -ar {sample_rate} -ac {channels} ' \
                  f'-sample_fmt s16 "{output_file}"'
@@ -95,6 +97,9 @@ def process_scp(args, start_idx, chunk_num):
                 continue
 
         try:
+            # 读取长音频
+            audio = AudioSegment.from_file(wav)
+            audio = audio.set_frame_rate(target_sample_rate)
             current_duration = float(get_file_duration(wav))
             total_duration += current_duration
 
@@ -125,9 +130,11 @@ def process_scp(args, start_idx, chunk_num):
                     segment_filename = f'{spker_dir}/{new_uttid}.wav'
                     fout.write(f"{new_uttid}\t{current_segment_text}\n")
                     fout.flush()
-                    segment_and_convert(
-                        wav, segment_filename,
-                        start_time/1000.0, segment_end_time/1000.0)
+                    # segment_and_convert(
+                    #     wav, segment_filename,
+                    #     start_time/1000.0, segment_end_time/1000.0)
+                    audio_segment = audio[start_time:segment_end_time]
+                    audio_segment.export(segment_filename, format='wav')
 
                     start_time = segment_end_time  # 更新起始时间为当前句末尾
                     current_segment_text = ""  # 清空累计文本
@@ -142,9 +149,12 @@ def process_scp(args, start_idx, chunk_num):
                 segment_filename = f'{spker_dir}/{new_uttid}.wav'
                 fout.write(f"{new_uttid}\t{current_segment_text}\n")
                 fout.flush()
-                segment_and_convert(
-                    wav, segment_filename,
-                    start_time / 1000.0, segment_end_time / 1000.0)
+                # segment_and_convert(
+                #     wav, segment_filename,
+                #     start_time / 1000.0, segment_end_time / 1000.0)
+                audio_segment = audio[start_time:segment_end_time]
+                audio_segment.export(segment_filename, format='wav')
+
                 start_time = segment_end_time  # 更新起始时间为当前句末尾
                 current_segment_text = ""  # 清空累计文本
                 segment_idx += 1
@@ -155,7 +165,7 @@ def process_scp(args, start_idx, chunk_num):
         else:
             pass
 
-    fout.close()
+        fout.close()
     f_scp.close()
     logger.info(f"Total long audio {total_duration} seconds; "
                 f"Total segments {segments_duration} seconds.")
