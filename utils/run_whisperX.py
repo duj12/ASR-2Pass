@@ -141,8 +141,9 @@ if __name__ == "__main__":
             remain_wavs = remain_wavs - 1
         # process i handle wavs at chunk_begin and size of now_chunk_size
         gpu_id = i % gpu_num
+        gpu_index = gpu_list[gpu_id]
         p = Process(target=process_scp, args=(
-            args, gpu_id, chunk_begin, now_chunk_size))
+            args, gpu_index, chunk_begin, now_chunk_size))
         chunk_begin = chunk_begin + now_chunk_size
         p.start()
         process_list.append(p)
