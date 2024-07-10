@@ -40,18 +40,26 @@ logger.addHandler(console_handler)
 
 # global
 output_format = "tsv"
+MAX_AUDIO_LENGTH = 15  # VAD merge后最长音频段，对应whisper解码最长一段的时长，目前看来好像最终whisper时间戳最长一段还是会接近30s.
 
 
 def process_scp(args, gpu_id, start_idx, chunk_num):
     device = 'cuda'
     gpu_index = int(gpu_id)
-    batch_size = 20  # reduce if low on GPU mem
+    batch_size = 16  # reduce if low on GPU mem
     compute_type = "float16"  # change to "int8" if low on GPU mem (may reduce accuracy)
 
     # model = whisper.load_model("large-v3", device=device)
-    model = whisperx.load_model("large-v3", device, device_index=gpu_index,
-                                language=args.language,
-                                compute_type=compute_type)
+    if args.language == 'zh':
+        prompt = '后面的内容，都是普通话的文本。'
+    else:
+        prompt = ""
+    asr_options = {
+        "initial_prompt": prompt,
+    }
+    model = whisperx.load_model(
+        "large-v3", device, device_index=gpu_index, language=args.language,
+        asr_options=asr_options, compute_type=compute_type)
 
     writer = get_writer(output_format, args.output_dir)
     
@@ -74,12 +82,9 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                 logger.warning(f"tsv path: {tsv_path} exits, continue.")
                 continue
             try:
-                if args.language == 'zh':
-                    prompt = '以下是普通话的句子'
-                else:
-                    prompt = ""
                 audio = whisperx.load_audio(wav)
-                result = model.transcribe(audio, batch_size=batch_size)
+                result = model.transcribe(
+                    audio, batch_size=args.batch_size, chunk_size=MAX_AUDIO_LENGTH,)
                 # result = model.transcribe(
                 #     wav, language=args.language,
                 #     verbose=True, initial_prompt=prompt)
@@ -97,18 +102,16 @@ if __name__ == "__main__":
     p.add_argument('-o', '--output_dir', type=str, required=False,
                    default=None, help='path to save the generated audios.')
     p.add_argument('-g', '--gpu_ids', type=str, required=False, default='0')
-    p.add_argument('-n', '--num_thread', type=str, required=False, default='1')
+    p.add_argument('-b', '--batch_size', type=int, required=False, default=4)
     p.add_argument('-l', '--language', type=str, required=True, default='zh')
 
     args = p.parse_args()
 
     gpus = args.gpu_ids
-    os.environ['CUDA_VISIBLE_DEVICES'] = gpus
     gpu_list = gpus.split(',')
     gpu_num = len(gpu_list)
     lang = args.language
-    thread_per_gpu = int(args.num_thread)  # 1 thread ~ 11G GPU_memory
-    thread_num = gpu_num * thread_per_gpu  # threads
+    thread_num = gpu_num  # threads
 
     wav_scp = args.wav_scp
     output_dir = args.output_dir

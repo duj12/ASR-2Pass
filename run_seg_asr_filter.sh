@@ -47,14 +47,14 @@ if [ $stage -le 0 ] && [ ${stop_stage} -ge 0 ]; then
 fi
 
 # whisper transcribe, get segment timestamp and text
-# the whisper-1.6B model consume 12G GPU-RAM per thread. A100-80G can run 6 threads.
+# use whisperX, large-v3 model, batch=32 consume ~ 13GB GPU-RAM
 if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-  echo "# 第1步，使用Whisper-large-v3模型转写。"
-  python3 $ROOT/utils/run_whisper.py  \
+  echo "# 第1步，使用WhisperX large-v3模型转写。"
+  python3 $ROOT/utils/run_whisperX.py  \
       -i  $output_dir/wav.scp \
       -o  $result_dir \
       -g  $gpu_ids  \
-      -n  2         \
+      -b  32        \
       -l  $lang
 
 fi
