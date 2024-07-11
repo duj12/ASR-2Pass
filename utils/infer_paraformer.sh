@@ -80,11 +80,15 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ];then
       mv ${data_dir}/text_whiper ${data_dir}/text
     fi
     if [ ! -f ${output_dir}/1best_recog/ref.txt ] ; then
-      echo "$0 --> Normalizing REF text ..."
-      python3 ./utils/textnorm_zh.py \
+      if [ ${language} == "zh" ]; then
+        echo "$0 --> Normalizing REF text ..."
+        python3 ./utils/textnorm_zh.py \
           --has_key --to_lower \
           ${data_dir}/text \
           ${output_dir}/1best_recog/ref.txt
+      else
+        cp ${data_dir}/text ${output_dir}/1best_recog/ref.txt
+      fi
     fi
     echo "$0 --> computing WER/CER and alignment ..."
 
