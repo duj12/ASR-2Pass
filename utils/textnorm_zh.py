@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
-import sys, argparse, codecs, string, re
-import queue
-import threading
-import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
+import sys, argparse, codecs, string, re, logging
+from multiprocessing import Process, Queue
 
 from tn.chinese.normalizer import Normalizer
 normalizer = Normalizer()
+logger = logging.getLogger(__name__)
 
 CHINESE_DIGIS = u'零一二三四五六七八九'
 BIG_CHINESE_DIGIS_SIMPLIFIED = u'零壹贰叁肆伍陆柒捌玖'
@@ -83,82 +81,108 @@ def remove_erhua(text, er_whitelist):
     return text
 
 
-def process_line(line, args, result_queue):
-    key = ''
-    text = ''
-    if args.has_key:
-        cols = line.split(maxsplit=1)
-        if len(cols) <= 0:
-            return
-        key = cols[0]
-        if len(cols) == 2:
-            text = cols[1].strip()
-        else:
-            text = ''
-    else:
-        text = line.strip()
+def process_lines(thread_id, lines, args, result_queue):
+    results = []
+    for i, line in enumerate(lines):
+        key = ''
+        text = ''
+        try:
+            if args.has_key:
+                cols = line.split(maxsplit=1)
+                if len(cols) <= 0:
+                    continue
+                key = cols[0]
+                if len(cols) == 2:
+                    text = cols[1].strip()
+                else:
+                    text = ''
+            else:
+                text = line.strip()
 
-    # cases
-    if args.to_upper and args.to_lower:
-        sys.stderr.write('text norm: to_upper OR to_lower?')
-        exit(1)
-    if args.to_upper:
-        text = text.upper()
-    if args.to_lower:
-        text = text.lower()
+            # cases
+            if args.to_upper and args.to_lower:
+                sys.stderr.write('text norm: to_upper OR to_lower?')
+                exit(1)
+            if args.to_upper:
+                text = text.upper()
+            if args.to_lower:
+                text = text.lower()
 
-    # Filler chars removal
-    if args.remove_fillers:
-        for ch in FILLER_CHARS:
-            text = text.replace(ch, '')
+            # Filler chars removal
+            if args.remove_fillers:
+                for ch in FILLER_CHARS:
+                    text = text.replace(ch, '')
 
-    if args.remove_erhua:
-        text = remove_erhua(text, ER_WHITELIST)
+            if args.remove_erhua:
+                text = remove_erhua(text, ER_WHITELIST)
 
-    # NSW(Non-Standard-Word) normalization
-    text = normalizer.normalize(text)
+            # NSW(Non-Standard-Word) normalization
+            text = normalizer.normalize(text)
 
-    # Punctuations removal
-    old_chars = CHINESE_PUNC_LIST + string.punctuation # includes all CN and EN punctuations
-    new_chars = ' ' * len(old_chars)
-    del_chars = ''
-    text = text.translate(str.maketrans(old_chars, new_chars, del_chars))
+            # Punctuations removal
+            old_chars = CHINESE_PUNC_LIST + string.punctuation # includes all CN and EN punctuations
+            new_chars = ' ' * len(old_chars)
+            del_chars = ''
+            text = text.translate(str.maketrans(old_chars, new_chars, del_chars))
 
-    if args.has_key:
-        result_queue.put(key + '\t' + text + '\n')
-    else:
-        result_queue.put(text + '\n')
+            if args.has_key:
+                results.append(key + '\t' + text + '\n')
+            else:
+                results.append(text + '\n')
+
+        except Exception as e:
+            logger.error(f"ITN error: {e}")
+            results.append(line)
+
+        if (i+1) % args.log_interval == 0:
+            logger.info(f"thread {thread_id} processed {i+1}/{len(lines)}")
+
+    result_queue.put(results)
 
 
 def main(args):
-    result_queue = queue.Queue()
+    result_queue = Queue()
 
-    with codecs.open(args.ifile, 'r', 'utf8') as ifile, codecs.open(
-            args.ofile, 'w+', 'utf8') as ofile:
+    with codecs.open(args.ifile, 'r', 'utf8') as ifile:
         lines = ifile.readlines()
-        print(f"total_lines: {len(lines)}")
-        # 控制线程池的数量
-        max_workers = args.num_workers
-        print(f"num_workers: {max_workers}")
+        total_len = len(lines)
+        logger.info(f"total_lines: {total_len}")
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(process_line, line, args, result_queue)
-                       for line in lines]
+        thread_num = args.num_workers
+        logger.info(f"num_workers: {thread_num}")
 
-            n = 0
-            while any(future.running() for future in
-                      futures) or not result_queue.empty():
-                try:
-                    result = result_queue.get(timeout=0.1)
-                    ofile.write(result)
-                    n += 1
-                    if n % args.log_interval == 0:
-                        sys.stderr.write(
-                            "text norm: {} lines done.\n".format(n))
-                except queue.Empty:
-                    continue
+        if total_len >= thread_num:
+            chunk_size = int(total_len / thread_num)
+            remain_wavs = total_len - chunk_size * thread_num
+        else:
+            chunk_size = 1
+            remain_wavs = 0
 
-        sys.stderr.write("text norm: {} lines done in total.\n".format(n))
+        processes = []
+        chunk_begin = 0
+        for i in range(thread_num):
+            now_chunk_size = chunk_size
+            if remain_wavs > 0:
+                now_chunk_size = chunk_size + 1
+                remain_wavs = remain_wavs - 1
+            chunks = lines[chunk_begin: chunk_begin + now_chunk_size]
+            logger.info(f"thread {i}, chunk size {len(chunks)}")
+            p = Process(target=process_lines,
+                        args=(i, chunks, args, result_queue))
+            chunk_begin = chunk_begin + now_chunk_size
+            processes.append(p)
+            p.start()
+
+        for p in processes:
+            p.join()
+
+        all_results = []
+        while not result_queue.empty():
+            all_results.extend(result_queue.get())
+
+        with codecs.open(args.ofile, 'w+', 'utf8') as ofile:
+            for result in all_results:
+                ofile.write(result)
 
 if __name__ == '__main__':
 

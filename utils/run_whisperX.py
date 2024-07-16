@@ -14,29 +14,18 @@ import whisperx
 
 torch.set_num_threads(4)
 
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-current_path = os.environ.get('PATH', '')
-ffmpeg_path = '/home/dujing/ffmpeg-6.0/bin'
-if ffmpeg_path not in current_path:
-    os.environ['PATH'] = ffmpeg_path + os.pathsep + current_path
-
-ld_library_path = os.environ.get('LD_LIBRARY_PATH', '')
-new_path = '/home/dujing/miniconda3/envs/dj_py310/lib/python3.10/site-packages/nvidia/cudnn/lib/'
-if new_path not in ld_library_path:
-    os.environ['LD_LIBRARY_PATH'] = new_path + os.pathsep + ld_library_path
+# os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+# current_path = os.environ.get('PATH', '')
+# ffmpeg_path = '/home/dujing/ffmpeg-6.0/bin'
+# if ffmpeg_path not in current_path:
+#     os.environ['PATH'] = ffmpeg_path + os.pathsep + current_path
+#
+# ld_library_path = os.environ.get('LD_LIBRARY_PATH', '')
+# new_path = '/home/dujing/miniconda3/envs/dj_py310/lib/python3.10/site-packages/nvidia/cudnn/lib/'
+# if new_path not in ld_library_path:
+#     os.environ['LD_LIBRARY_PATH'] = new_path + os.pathsep + ld_library_path
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-# file_handler = logging.FileHandler('app.log')
-# file_handler.setLevel(logging.INFO)
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
 
 # global
 output_format = "tsv"
