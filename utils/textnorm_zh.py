@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
-import sys, argparse, codecs, string, re, logging
-from multiprocessing import Process, Queue
+import sys, argparse, codecs, string, re, logging, os
+from multiprocessing import Process
 
 from tn.chinese.normalizer import Normalizer
 normalizer = Normalizer()
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+# file_handler = logging.FileHandler('app.log')
+# file_handler.setLevel(logging.INFO)
+# file_handler.setFormatter(formatter)
+# logger.addHandler(file_handler)
 
 CHINESE_DIGIS = u'零一二三四五六七八九'
 BIG_CHINESE_DIGIS_SIMPLIFIED = u'零壹贰叁肆伍陆柒捌玖'
@@ -81,68 +92,65 @@ def remove_erhua(text, er_whitelist):
     return text
 
 
-def process_lines(thread_id, lines, args, result_queue):
-    results = []
-    for i, line in enumerate(lines):
-        key = ''
-        text = ''
-        try:
-            if args.has_key:
-                cols = line.split(maxsplit=1)
-                if len(cols) <= 0:
-                    continue
-                key = cols[0]
-                if len(cols) == 2:
-                    text = cols[1].strip()
+def process_lines(thread_id, lines, args, output_file):
+    with codecs.open(output_file, 'w', 'utf8') as ofile:
+        for i, line in enumerate(lines):
+            try:
+                if args.has_key:
+                    cols = line.split(maxsplit=1)
+                    if len(cols) <= 0:
+                        continue
+                    key = cols[0]
+                    if len(cols) == 2:
+                        text = cols[1].strip()
+                    else:
+                        text = ''
                 else:
-                    text = ''
-            else:
-                text = line.strip()
+                    text = line.strip()
 
-            # cases
-            if args.to_upper and args.to_lower:
-                sys.stderr.write('text norm: to_upper OR to_lower?')
-                exit(1)
-            if args.to_upper:
-                text = text.upper()
-            if args.to_lower:
-                text = text.lower()
+                # cases
+                if args.to_upper and args.to_lower:
+                    sys.stderr.write('text norm: to_upper OR to_lower?')
+                    exit(1)
+                if args.to_upper:
+                    text = text.upper()
+                if args.to_lower:
+                    text = text.lower()
 
-            # Filler chars removal
-            if args.remove_fillers:
-                for ch in FILLER_CHARS:
-                    text = text.replace(ch, '')
+                # Filler chars removal
+                if args.remove_fillers:
+                    for ch in FILLER_CHARS:
+                        text = text.replace(ch, '')
 
-            if args.remove_erhua:
-                text = remove_erhua(text, ER_WHITELIST)
+                if args.remove_erhua:
+                    text = remove_erhua(text, ER_WHITELIST)
 
-            # NSW(Non-Standard-Word) normalization
-            text = normalizer.normalize(text)
+                # NSW(Non-Standard-Word) normalization
+                text = normalizer.normalize(text)
 
-            # Punctuations removal
-            old_chars = CHINESE_PUNC_LIST + string.punctuation # includes all CN and EN punctuations
-            new_chars = ' ' * len(old_chars)
-            del_chars = ''
-            text = text.translate(str.maketrans(old_chars, new_chars, del_chars))
+                # Punctuations removal
+                old_chars = CHINESE_PUNC_LIST + string.punctuation # includes all CN and EN punctuations
+                new_chars = ' ' * len(old_chars)
+                del_chars = ''
+                text = text.translate(str.maketrans(old_chars, new_chars, del_chars))
 
-            if args.has_key:
-                results.append(key + '\t' + text + '\n')
-            else:
-                results.append(text + '\n')
+                if args.has_key:
+                    ofile.write(key + '\t' + text + '\n')
+                    ofile.flush()
+                else:
+                    ofile.write(text + '\n')
+                    ofile.flush()
 
-        except Exception as e:
-            logger.error(f"ITN error: {e}")
-            results.append(line)
+            except Exception as e:
+                logger.error(f"ITN error: {e}")
+                ofile.write(line)
+                ofile.flush()
 
-        if (i+1) % args.log_interval == 0:
-            logger.info(f"thread {thread_id} processed {i+1}/{len(lines)}")
-
-    result_queue.put(results)
+            if (i+1) % args.log_interval == 0:
+                logger.info(f"thread {thread_id} processed {i+1}/{len(lines)}")
 
 
 def main(args):
-    result_queue = Queue()
-
     with codecs.open(args.ifile, 'r', 'utf8') as ifile:
         lines = ifile.readlines()
         total_len = len(lines)
@@ -159,6 +167,7 @@ def main(args):
             remain_wavs = 0
 
         processes = []
+        output_files = []
         chunk_begin = 0
         for i in range(thread_num):
             now_chunk_size = chunk_size
@@ -167,8 +176,10 @@ def main(args):
                 remain_wavs = remain_wavs - 1
             chunks = lines[chunk_begin: chunk_begin + now_chunk_size]
             logger.info(f"thread {i}, chunk size {len(chunks)}")
+            output_file = f"{args.ofile}.{i}.txt"
+            output_files.append(output_file)
             p = Process(target=process_lines,
-                        args=(i, chunks, args, result_queue))
+                        args=(i, chunks, args, output_file))
             chunk_begin = chunk_begin + now_chunk_size
             processes.append(p)
             p.start()
@@ -176,13 +187,12 @@ def main(args):
         for p in processes:
             p.join()
 
-        all_results = []
-        while not result_queue.empty():
-            all_results.extend(result_queue.get())
-
         with codecs.open(args.ofile, 'w+', 'utf8') as ofile:
-            for result in all_results:
-                ofile.write(result)
+            for output_file in output_files:
+                with codecs.open(output_file, 'r', 'utf8') as part_file:
+                    for line in part_file:
+                        ofile.write(line)
+                os.remove(output_file)  # 删除中间结果文件
 
 if __name__ == '__main__':
 

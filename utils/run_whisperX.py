@@ -26,6 +26,17 @@ torch.set_num_threads(4)
 #     os.environ['LD_LIBRARY_PATH'] = new_path + os.pathsep + ld_library_path
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+# file_handler = logging.FileHandler('app.log')
+# file_handler.setLevel(logging.INFO)
+# file_handler.setFormatter(formatter)
+# logger.addHandler(file_handler)
 
 # global
 output_format = "tsv"
