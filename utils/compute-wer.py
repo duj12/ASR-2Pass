@@ -371,7 +371,7 @@ if __name__ == '__main__':
   with codecs.open(hyp_file, 'r', 'utf-8') as fh:
      for line in fh:
         line = line.strip().split(maxsplit=1)
-        if len(line)==1: continue
+        if len(line)<=1: continue
         fid = line[0]
         line = line[1]
         if tochar:
