@@ -92,9 +92,13 @@ if [ $stage -le 2 ] && [ $stop_stage -ge 2 ];then
     fi
     echo "$0 --> computing WER/CER and alignment ..."
 
-    python3 ./utils/compute-wer.py --char=1 --v=1 \
+#    python3 ./utils/compute-wer.py --char=1 --v=1 \
+#        ${output_dir}/1best_recog/ref.txt \
+#        ${output_dir}/1best_recog/text > \
+#        ${output_dir}/1best_recog/wer.txt
+    bash ./utils/mp_compute_wer.sh  \
         ${output_dir}/1best_recog/ref.txt \
-        ${output_dir}/1best_recog/text > \
+        ${output_dir}/1best_recog/text \
         ${output_dir}/1best_recog/wer.txt
 
 fi
