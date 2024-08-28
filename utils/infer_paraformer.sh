@@ -141,4 +141,8 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
       perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/utt2spk > ${filter_dir}/spk2utt
     fi
 
+    # 对文本筛完的数据，计算DNSMOS值
+    python utils/dnsmos_local.py -i $filter_dir/wav.scp -o $filter_dir/utt2mos
+
+
 fi

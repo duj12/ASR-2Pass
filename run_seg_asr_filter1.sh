@@ -82,13 +82,12 @@ if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     find  $segment_dir/$lang  -type f  -name "*.wav" | awk -F"/"  -v name="" \
        '{name=$NF; gsub(".wav","",name); print name"\t"$(NF-1) }' | sort > $data_dir/$lang/utt2spk
     bash $ROOT/utils/wav_to_duration.sh --nj 48 $data_dir/$lang/wav.scp  $data_dir/$lang/wav2dur
-    python $ROOT/utils/dnsmos_local.py -i $data_dir/$lang/wav.scp -o $data_dir/$lang/utt2mos
 
     mkdir -p $data_dir/$lang/backup
     mv $data_dir/$lang/*  $data_dir/$lang/backup
     # 将时长超过40s的音频都过滤掉，是whisper转写结果有问题的音频拼起来时长会比较长。
     cat ${data_dir}/$lang/backup/wav2dur | awk '{if($2<=40 && $2>=0.5) print $0}' > ${data_dir}/$lang/wav2dur
-    for f in wav.scp text utt2spk utt2mos; do
+    for f in wav.scp text utt2spk; do
       perl $ROOT/utils/filter_scp.pl ${data_dir}/$lang/wav2dur ${data_dir}/$lang/backup/$f > ${data_dir}/$lang/$f
     done
     perl $ROOT/utils/utt2spk_to_spk2utt.pl  $data_dir/$lang/utt2spk > $data_dir/$lang/spk2utt
