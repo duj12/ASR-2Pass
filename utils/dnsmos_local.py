@@ -124,7 +124,7 @@ def main(args):
 
     fout = open(args.mos_res, 'w', encoding='utf-8')
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
         future_to_url = {executor.submit(compute_score, clip, desired_fs, is_personalized_eval):
                              clip for clip in clips}
         for future in tqdm(concurrent.futures.as_completed(future_to_url)):
@@ -147,7 +147,8 @@ if __name__=="__main__":
     parser.add_argument('-o', "--mos_res", default=None, help='Dir to the mos resutl')
     parser.add_argument('-p', "--personalized_MOS", action='store_true', 
                         help='Flag to indicate if personalized MOS score is needed or regular')
-    
+
+    parser.add_argument('-n', "--threads", type=int, default=1, help='num of jobs')
     args = parser.parse_args()
 
     main(args)

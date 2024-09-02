@@ -120,14 +120,14 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
 
     # 因为Whisper对英文语音指定解码中文时会自动翻译结果，导致WER结果可能出现S很大，D+I很小的情况， 这里直接限制WER本身不要超过一定数值。
     echo "Filter utt whose D+I <=2 and WER<=30%. "
-    perl utils/filter_scp.pl  ${filter_dir}/utt2delins0 ${filter_dir}/utt2wer > ${filter_dir}/utt2delins
+    perl utils/filter_scp.pl  ${filter_dir}/utt2wer ${filter_dir}/utt2delins0 > ${filter_dir}/utt2delins
 
     # use the recognized text as text pseudo label. 避免Whisper的正则文本和实际发音不一致。
     if [ ! -f ${data_dir}/text_whiper ] ;then
       mv ${data_dir}/text ${data_dir}/text_whiper
     fi
     python3 ./utils/remove_space_between_chinese.py ${output_dir}/1best_recog/text ${data_dir}/text 1
-    for file_name in wav.scp text; do
+    for file_name in wav.scp text ; do
       perl utils/filter_scp.pl  ${filter_dir}/utt2delins ${data_dir}/$file_name > ${filter_dir}/$file_name
     done
     if [ -f ${data_dir}/wav2dur ]; then
@@ -141,8 +141,16 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
       perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/utt2spk > ${filter_dir}/spk2utt
     fi
 
-    # 对文本筛完的数据，计算DNSMOS值
-    python utils/dnsmos_local.py -i $filter_dir/wav.scp -o $filter_dir/utt2mos
+    # 对文本筛完的数据，计算speechMOS值
+    python utils/run_speechMOS.py -i $filter_dir/wav.scp -o $filter_dir/utt2mos -g $gpuid_list -n 3
+    mkdir -p $filter_dir/mos3
+    awk '{if($2>=3) print $0}' $filter_dir/utt2mos > $filter_dir/mos3/utt2mos
+    for file_name in wav.scp text utt2spk wav2dur utt2wer utt2delins ; do
+      perl utils/filter_scp.pl  ${filter_dir}/mos3/utt2mos ${filter_dir}/$file_name > ${filter_dir}/mos3/$file_name
+    done
+    perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/mos3/utt2spk > ${filter_dir}/mos3/spk2utt
 
+    mos3_dur=`cat ${filter_dir}/mos3/wav2dur | awk -v total=0.0 '{total+=$2 } END{print total/3600}'`
+    echo "Total duration $dur_ori hours, WER<=5% duration $dur hours. MOS>=3.0 duration $mos3_dur hours."
 
 fi
