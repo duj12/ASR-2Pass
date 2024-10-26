@@ -142,7 +142,7 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
     fi
 
     # 对文本筛完的数据，计算speechMOS值
-    python utils/run_speechMOS.py -i $filter_dir/wav.scp -o $filter_dir/utt2mos -g $gpuid_list -n 3
+    python utils/run_speechMOS.py -i $filter_dir/wav.scp -o $filter_dir/utt2mos -g $gpuid_list -n 2
     mkdir -p $filter_dir/mos3
     awk '{if($2>=3) print $0}' $filter_dir/utt2mos > $filter_dir/mos3/utt2mos
     for file_name in wav.scp text utt2spk wav2dur utt2wer utt2delins ; do

@@ -75,10 +75,18 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                 logger.warning(f"wav path: {wav} not exist.")
                 continue
             tsv_name = os.path.splitext(utt)[0]
-            tsv_path = os.path.join(args.output_dir, f"{tsv_name}.tsv")
-            if os.path.exists(tsv_path):
-                logger.warning(f"tsv path: {tsv_path} exits, continue.")
+
+            is_transcribed = False
+            for lang in useful_language:
+                tsv_path = os.path.join(
+                    args.output_dir, lang, f"{tsv_name}.tsv")
+                if os.path.exists(tsv_path):
+                    is_transcribed = True
+                    logger.warning(f"tsv path: {tsv_path} exits, continue.")
+                    break
+            if is_transcribed:
                 continue
+
             try:
                 audio = whisperx.load_audio(wav)
                 language = model.detect_language(audio)
