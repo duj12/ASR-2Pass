@@ -61,7 +61,7 @@ parser.add_argument("--output_dir",
 
 parser.add_argument("--ssl",
                     type=int,
-                    default=1,
+                    default=0,
                     help="1 for ssl connect, 0 for no ssl")
 parser.add_argument("--mode",
                     type=str,

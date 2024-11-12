@@ -460,7 +460,13 @@ extern "C" {
 			string msg = asr_handle->Forward(frame->data, frame->len, frame->is_final, hw_emb);
 
 			std::vector<std::string> msg_vec = funasr::split(msg, '|');  // split with timestamp
+
+			if(msg_vec.size()==0){
+				continue;
+			}
+
 			msg = msg_vec[0];
+
 			//timestamp
 			if(msg_vec.size() > 1){
 				std::vector<std::string> msg_stamp = funasr::split(msg_vec[1], ',');
