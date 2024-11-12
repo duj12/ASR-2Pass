@@ -144,6 +144,106 @@ string CTTransformer::AddPunc(const char* sz_input)
     return strResult;
 }
 
+
+string CTTransformer::AddPunc(const char* sz_input, vector<string> &arr_cache)
+{
+    string strResult;
+    vector<string> strOut;
+    vector<int> InputData;
+    m_tokenizer.Tokenize(sz_input, strOut, InputData); 
+
+    int nTotalBatch = ceil((float)InputData.size() / TOKEN_LEN);
+    int nCurBatch = -1;
+    int nSentEnd = -1, nLastCommaIndex = -1;
+    vector<int32_t> RemainIDs; // 
+    vector<string> RemainStr; //
+    vector<int> NewPunctuation; //
+    vector<string> NewString; //
+    vector<string> NewSentenceOut;
+    vector<int> NewPuncOut;
+    int nDiff = 0;
+    for (size_t i = 0; i < InputData.size(); i += TOKEN_LEN)
+    {
+        nDiff = (i + TOKEN_LEN) < InputData.size() ? (0) : (i + TOKEN_LEN - InputData.size());
+        vector<int32_t> InputIDs(InputData.begin() + i, InputData.begin() + i + TOKEN_LEN - nDiff);
+        vector<string> InputStr(strOut.begin() + i, strOut.begin() + i + TOKEN_LEN - nDiff);
+        InputIDs.insert(InputIDs.begin(), RemainIDs.begin(), RemainIDs.end()); // RemainIDs+InputIDs;
+        InputStr.insert(InputStr.begin(), RemainStr.begin(), RemainStr.end()); // RemainStr+InputStr;
+
+        auto Punction = Infer(InputIDs);
+        nCurBatch = i / TOKEN_LEN;
+        if (nCurBatch < nTotalBatch - 1) // not the last minisetence
+        {
+            nSentEnd = -1;
+            nLastCommaIndex = -1;
+            for (int nIndex = Punction.size() - 2; nIndex > 0; nIndex--)
+            {
+                if (m_tokenizer.Id2Punc(Punction[nIndex]) == m_tokenizer.Id2Punc(PERIOD_INDEX) || m_tokenizer.Id2Punc(Punction[nIndex]) == m_tokenizer.Id2Punc(QUESTION_INDEX))
+                {
+                    nSentEnd = nIndex;
+                    break;
+                }
+                if (nLastCommaIndex < 0 && m_tokenizer.Id2Punc(Punction[nIndex]) == m_tokenizer.Id2Punc(COMMA_INDEX))
+                {
+                    nLastCommaIndex = nIndex;
+                }
+            }
+            if (nSentEnd < 0 && InputStr.size() > CACHE_POP_TRIGGER_LIMIT && nLastCommaIndex > 0)
+            {
+                nSentEnd = nLastCommaIndex;
+                Punction[nSentEnd] = PERIOD_INDEX;
+            }
+            RemainStr.assign(InputStr.begin() + nSentEnd + 1, InputStr.end());
+            RemainIDs.assign(InputIDs.begin() + nSentEnd + 1, InputIDs.end());
+            InputStr.assign(InputStr.begin(), InputStr.begin() + nSentEnd + 1);  // minit_sentence
+            Punction.assign(Punction.begin(), Punction.begin() + nSentEnd + 1);
+        }
+        
+        NewPunctuation.insert(NewPunctuation.end(), Punction.begin(), Punction.end());
+        vector<string> WordWithPunc;
+        for (int i = 0; i < InputStr.size(); i++)
+        {
+            // if (i > 0 && !(InputStr[i][0] & 0x80) && (i + 1) <InputStr.size() && !(InputStr[i+1][0] & 0x80))// �м��Ӣ�ģ�
+            if (i > 0 && !(InputStr[i-1][0] & 0x80) && !(InputStr[i][0] & 0x80))
+            {
+                InputStr[i] = " " + InputStr[i];
+            }
+            WordWithPunc.push_back(InputStr[i]);
+
+            if (Punction[i] != NOTPUNC_INDEX) // �»���
+            {
+                WordWithPunc.push_back(m_tokenizer.Id2Punc(Punction[i]));
+            }
+        }
+
+        NewString.insert(NewString.end(), WordWithPunc.begin(), WordWithPunc.end()); // new_mini_sentence += "".join(words_with_punc)
+        NewSentenceOut = NewString;
+        NewPuncOut = NewPunctuation;
+        // last mini sentence
+        if(nCurBatch == nTotalBatch - 1)
+        {
+            if (NewString[NewString.size() - 1] == m_tokenizer.Id2Punc(COMMA_INDEX) || NewString[NewString.size() - 1] == m_tokenizer.Id2Punc(DUN_INDEX))
+            {
+                NewSentenceOut.assign(NewString.begin(), NewString.end() - 1);
+                NewSentenceOut.push_back(m_tokenizer.Id2Punc(PERIOD_INDEX));
+                NewPuncOut.assign(NewPunctuation.begin(), NewPunctuation.end() - 1);
+                NewPuncOut.push_back(PERIOD_INDEX);
+            }
+            else if (NewString[NewString.size() - 1] != m_tokenizer.Id2Punc(PERIOD_INDEX) && NewString[NewString.size() - 1] != m_tokenizer.Id2Punc(QUESTION_INDEX))
+            {
+                NewSentenceOut = NewString;
+                NewSentenceOut.push_back(m_tokenizer.Id2Punc(PERIOD_INDEX));
+                NewPuncOut = NewPunctuation;
+                NewPuncOut.push_back(PERIOD_INDEX);
+            }
+        }
+    }
+    for (auto& item : NewSentenceOut)
+        strResult += item;
+    return strResult;
+}
+
+
 vector<int> CTTransformer::Infer(vector<int32_t> input_data)
 {
     Ort::MemoryInfo m_memoryInfo = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);

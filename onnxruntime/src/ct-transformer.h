@@ -30,5 +30,6 @@ public:
 	~CTTransformer();
 	vector<int>  Infer(vector<int32_t> input_data);
 	string AddPunc(const char* sz_input);
+	string AddPunc(const char* sz_input, vector<string> &arr_cache);
 };
 } // namespace funasr

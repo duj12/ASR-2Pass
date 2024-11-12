@@ -9,6 +9,7 @@ namespace funasr {
 CTTransformerOnline::CTTransformerOnline()
 :env_(ORT_LOGGING_LEVEL_ERROR, ""),session_options{}
 {
+    is_online = true;
 }
 
 void CTTransformerOnline::InitPunc(const std::string &punc_model, const std::string &punc_config, int thread_num){

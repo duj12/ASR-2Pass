@@ -84,9 +84,18 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
         {
             LOG(INFO) << "PUNC model file is not exist, skip load punc model.";
         }else{
-            punc_online_handle = make_unique<CTTransformerOnline>();
-            punc_online_handle->InitPunc(punc_model_path, punc_config_path, thread_num);
-            use_punc = true;
+            // online punc model
+            if (punc_model_path.find("realtime") != std::string::npos){
+                punc_online_handle = make_unique<CTTransformerOnline>();
+                punc_online_handle->InitPunc(punc_model_path, punc_config_path, thread_num);
+                use_punc = true;
+            }
+            // offline punc model
+            else{
+                punc_online_handle = make_unique<CTTransformer>();
+                punc_online_handle->InitPunc(punc_model_path, punc_config_path, thread_num);
+                use_punc = true;
+            }
         }
     }
 

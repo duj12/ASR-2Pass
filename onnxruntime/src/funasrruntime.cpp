@@ -483,7 +483,7 @@ extern "C" {
 			}
 
 			string msg_punc = punc_online_handle->AddPunc(msg.c_str(), punc_cache[1]);
-			if(input_finished){
+			if(input_finished && punc_online_handle->is_online){
 				msg_punc += "。";
 			}
 			p_result->tpass_msg = msg_punc;
