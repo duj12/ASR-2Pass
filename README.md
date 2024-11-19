@@ -1,26 +1,4 @@
-# 数据切分，转写，筛选流程
-```shell
-src_dir=/path/to/your/src/audio/  # 原始需要清洗的长音频/长视频所在路径
-tgt_dir=/path/to/your/tgt/audio   # 最终清洗后的短音频和文本等kaldi格式数据保存路径
-bash ./run_seg_asr_filter.sh  $src_dir  $tgt_dir 
-```
-
-
-# 便捷转写教程
-
-1. 启动服务，第一次启动时会自动编译
-```shell
-bash ./run_prepare_server.sh
-```
-
-2. 在另一个窗口，启动转写
-```shell
-audio_dir=/path/to/your/audios  # 这里需要提供转写音频所在的文件夹，绝对路径。
-bash ./run_transcribe_audio.sh $audio_dir
-```
-
-
-# 服务部署和使用
+# 一、服务部署和使用
 
 0, 首先克隆asr-2pass项目
 
@@ -30,16 +8,38 @@ cd asr-2pass/websocket
 
 # the following script will make websocket with onnxruntime when runing at first time. And the libs and models needed will be downloaded.
 # the port is default: 10095, you can change it by yourself.
-bash ./run_server_2pass.sh  &
+bash ./run_server_2pass_ssl.sh  &
 ```
-2, 启动h5服务
+不同服务启动脚本说明：
+```text
+a.流式ASR服务，适用于流式语音输入、长音频输入。输出视音频内容会分多个片段，最终结果返回时会服务端会给出特定标志。
+  run_server_2pass_ssl.sh
+    加载热词版本非流式模型，流式标点模型，ssl开启
+
+  run_server_2pass.sh
+    加载热词版本非流式模型，非流式标点模型(适用于单句文本上屏显示)，ssl关闭
+    
+  run_server_2pass_stream_punc.sh
+    加载热词版本非流式模型，流式标点模型(适用于多句文本拼接后显示，标点预测更准确)，ssl关闭
+
+  run_server_2pass_tp.sh
+    加载时间戳版本的非流式模型（可获取每个汉字时间戳），不加载ITN(避免ITN后时长不对齐)，加载流式标点模型，ssl关闭
+  
+  
+b.非流式ASR服务，适用于长音频转写。整段音频输入，一次输出完整ASR结果。
+  run_server_offline.sh
+    加载热词版本非流式模型，非流式标点模型，ssl关闭。
+```
+
+
+2, 启动h5服务（如果你想在浏览器上使用ASR）
 ```shell
 cd ../html5
 # you should prepare a python env by yourself.
 python h5Server.py  &
 # the ip and port should be kept and used in the following step. the port is default: 1337
 ```
-3, 浏览器中使用ASR服务
+3, 浏览器中使用ASR服务，注意服务端需要启用ssl。
 
 在浏览器中粘贴 "https://xxx.xxx.xx.xx:xxxx/static/asr-2pass-demo.html" 
 
@@ -50,12 +50,28 @@ ASR服务地址，填写第一步启动服务时的服务器地址和端口。�
 启动后页面如下图所示：
 <div align="left"><img src="h5_demo.png" width="600"/></div>
 
-4, 其他客户端
-见clients, 目前支持cpp, h5, java, python客户端
+4, 其他客户端，适合开发者，推荐python（随服务端更新）
+
+见clients, 目前支持cpp, h5, java, python客户端。
+
+以python客户端为例，支持以下参数控制：
+```text
+--host is the IP address of the FunASR runtime-SDK service deployment machine, which defaults to the local IP address (127.0.0.1). If the client and the service are not on the same server, it needs to be changed to the deployment machine IP address.
+--port 10095 deployment port number
+--mode: `offline` indicates that the inference mode is one-sentence recognition; `online` indicates that the inference mode is real-time speech recognition; `2pass` indicates real-time speech recognition, and offline models are used for error correction at the end of each sentence.
+--chunk_size: indicates the latency configuration of the streaming model. [5,10,5] indicates that the current audio is 600ms, with a lookback of 300ms and a lookahead of 300ms.
+--audio_in is the audio file that needs to be transcribed, supporting file paths and file list wav.scp
+--thread_num sets the number of concurrent sending threads, default is 1
+--ssl sets whether to enable SSL certificate verification, default is 1 to enable, and 0 to disable
+--hotword: Hotword file path or hotwords split with space, one line for each hotword(e.g.: "语音识别 热词")
+--use_itn: whether to use itn, the default value is 1 for enabling and 0 for disabling.
+--vad_tail_sil: the trailing silence length of VAD, in ms. If silence in an audio cilp exceed this value, it will be cut.
+--vad_max_len: the max duration of a audio segment cut by VAD, in ms. If there is no silence deteced, the audio will be cut when its duration exceed this value.
+```
 
 5, 服务端参数配置
 ```text
---download-model-dir 模型下载地址，在以下模型路径无法获取的时候，从modelscope下载
+--download-model-dir 模型根目录
 --model-dir  非流式识别ASR模型路径
 --online-model-dir  流式识别ASR模型路径
 --quantize  True为量化ASR模型，False为非量化ASR模型，默认是True
@@ -74,7 +90,7 @@ ASR服务地址，填写第一步启动服务时的服务器地址和端口。�
 
 
 
-# websocket通信协议
+# 二、websocket通信协议
 
 ## 实时语音识别
 ### 系统架构图
@@ -166,4 +182,26 @@ message为（采用json序列化）
 `text`：表示语音识别输出文本
 `is_final`：表示识别结束
 `timestamp`：如果AM为时间戳模型，会返回此字段，表示时间戳，格式为 "[[100,200], [200,500]]"(ms)
+```
+
+
+# 三、便捷转写教程
+
+1. 启动服务，第一次启动时会自动编译
+```shell
+bash ./run_prepare_server.sh
+```
+
+2. 在另一个窗口，启动转写
+```shell
+audio_dir=/path/to/your/audios  # 这里需要提供转写音频所在的文件夹，绝对路径。
+bash ./run_transcribe_audio.sh $audio_dir
+```
+
+
+# 四、数据切分，转写，筛选流程
+```shell
+src_dir=/path/to/your/src/audio/  # 原始需要清洗的长音频/长视频所在路径
+tgt_dir=/path/to/your/tgt/audio   # 最终清洗后的短音频和文本等kaldi格式数据保存路径
+bash ./run_seg_asr_filter1.sh  $src_dir  $tgt_dir 
 ```

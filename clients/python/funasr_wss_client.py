@@ -32,7 +32,7 @@ parser.add_argument("--chunk_interval",
 parser.add_argument("--hotword",
                     type=str,
                     default="",
-                    help="hotword, *.txt(one hotword perline) or hotwords seperate by space (could be: 阿里巴巴 达摩院)")
+                    help="hotword, *.txt(one hotword perline) or hotwords seperate by space (could be: 语音识别 热词)")
 parser.add_argument("--audio_in",
                     type=str,
                     default=None,
@@ -243,6 +243,7 @@ async def message(id):
     #     ibest_writer = open(os.path.join(args.output_dir, "text.{}".format(id)), "a", encoding="utf-8")
     # else:
     #     ibest_writer = None
+    time_stamp_print = ""
     try:
        while True:
         
@@ -259,6 +260,7 @@ async def message(id):
             timestamp=""
             if "timestamp" in meg:
                 timestamp = meg["timestamp"]
+                time_stamp_print += timestamp+"\n"
 
             if ibest_writer is not None:
                 if timestamp !="":
@@ -274,6 +276,7 @@ async def message(id):
                 text_print = text_print[-args.words_max_print:]
                 os.system('clear')
                 print("\rpid" + str(id) + ": " + text_print)
+                print(time_stamp_print)
             elif meg["mode"] == "offline":
                 if timestamp !="":
                     text_print += "{} timestamp: {}".format(text, timestamp)
@@ -281,6 +284,7 @@ async def message(id):
                     text_print += "{}".format(text)
 
                 print("\rpid" + str(id) + ": " + wav_name + ": " + text_print)
+                print(time_stamp_print)
                 offline_msg_done = True
             else:
                 if meg["mode"] == "2pass-online":
@@ -293,6 +297,7 @@ async def message(id):
                 text_print = text_print[-args.words_max_print:]
                 os.system('clear')
                 print("\rpid" + str(id) + ": " + text_print)
+                print(time_stamp_print)
                 if meg["is_final"]:
                     offline_msg_done=True
 
