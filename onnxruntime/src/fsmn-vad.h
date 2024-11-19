@@ -29,6 +29,8 @@ public:
         bool is_final);
     void Reset();
     
+    void SetConfig(int vad_tail_sil, int vad_max_len);
+    
     std::shared_ptr<Ort::Session> vad_session_ = nullptr;
     Ort::Env env_;
     Ort::SessionOptions session_options_;

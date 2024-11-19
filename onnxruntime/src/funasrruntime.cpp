@@ -217,9 +217,16 @@ extern "C" {
 	}
 
 	// APIs for Offline-stream Infer
-	_FUNASRAPI FUNASR_RESULT FunOfflineInferBuffer(FUNASR_HANDLE handle, const char* sz_buf, int n_len, FUNASR_MODE mode, QM_CALLBACK fn_callback, const std::vector<std::vector<float>> &hw_emb, int sampling_rate, std::string wav_format)
+	_FUNASRAPI FUNASR_RESULT FunOfflineInferBuffer(FUNASR_HANDLE handle, const char* sz_buf, int n_len, FUNASR_MODE mode, QM_CALLBACK fn_callback,
+                                                   const std::vector<std::vector<float>> &hw_emb, bool itn,
+                                                   int vad_tail_sil, int vad_max_len,
+                                                   int sampling_rate, std::string wav_format)
 	{
 		funasr::OfflineStream* offline_stream = (funasr::OfflineStream*)handle;
+		
+		funasr::VadModel* vad_handle = (offline_stream->vad_handle).get();
+		vad_handle->SetConfig(vad_tail_sil, vad_max_len);
+
 		if (!offline_stream)
 			return nullptr;
 
@@ -277,7 +284,7 @@ extern "C" {
 			string punc_res = (offline_stream->punc_handle)->AddPunc((p_result->msg).c_str());
 			p_result->msg = punc_res;
 		}
-		if(offline_stream->UseITN()){
+		if(offline_stream->UseITN() && itn){
 			string msg_itn = offline_stream->itn_handle->Normalize(p_result->msg);
 			p_result->msg = msg_itn;
 		}
@@ -285,9 +292,16 @@ extern "C" {
 		return p_result;
 	}
 
-	_FUNASRAPI FUNASR_RESULT FunOfflineInfer(FUNASR_HANDLE handle, const char* sz_filename, FUNASR_MODE mode, QM_CALLBACK fn_callback, const std::vector<std::vector<float>> &hw_emb, int sampling_rate)
+	_FUNASRAPI FUNASR_RESULT FunOfflineInfer(FUNASR_HANDLE handle, const char* sz_filename, FUNASR_MODE mode, QM_CALLBACK fn_callback,
+                                             const std::vector<std::vector<float>> &hw_emb,
+                                             bool itn, int vad_tail_sil, int vad_max_len,
+                                             int sampling_rate)
 	{
 		funasr::OfflineStream* offline_stream = (funasr::OfflineStream*)handle;
+
+		funasr::VadModel* vad_handle = (offline_stream->vad_handle).get();
+		vad_handle->SetConfig(vad_tail_sil, vad_max_len);
+
 		if (!offline_stream)
 			return nullptr;
 		
@@ -348,7 +362,7 @@ extern "C" {
 			string punc_res = (offline_stream->punc_handle)->AddPunc((p_result->msg).c_str());
 			p_result->msg = punc_res;
 		}
-		if(offline_stream->UseITN()){
+		if(offline_stream->UseITN() && itn){
 			string msg_itn = offline_stream->itn_handle->Normalize(p_result->msg);
 			p_result->msg = msg_itn;
 		}
@@ -380,7 +394,11 @@ extern "C" {
 
 
 	// APIs for 2pass-stream Infer
-	_FUNASRAPI FUNASR_RESULT FunTpassInferBuffer(FUNASR_HANDLE handle, FUNASR_HANDLE online_handle, const char* sz_buf, int n_len, std::vector<std::vector<std::string>> &punc_cache, bool input_finished, int sampling_rate, std::string wav_format, ASR_TYPE mode, const std::vector<std::vector<float>> &hw_emb)
+	_FUNASRAPI FUNASR_RESULT FunTpassInferBuffer(FUNASR_HANDLE handle, FUNASR_HANDLE online_handle, const char* sz_buf, int n_len,
+                                                 std::vector<std::vector<std::string>> &punc_cache, bool input_finished, int sampling_rate,
+                                                 std::string wav_format, ASR_TYPE mode,
+                                                 const std::vector<std::vector<float>> &hw_emb, bool itn,
+                                                 int vad_tail_sil, int vad_max_len)
 	{
 		funasr::TpassStream* tpass_stream = (funasr::TpassStream*)handle;
 		funasr::TpassOnlineStream* tpass_online_stream = (funasr::TpassOnlineStream*)online_handle;
@@ -390,6 +408,8 @@ extern "C" {
 		funasr::VadModel* vad_online_handle = (tpass_online_stream->vad_online_handle).get();
 		if (!vad_online_handle)
 			return nullptr;
+		
+		vad_online_handle->SetConfig(vad_tail_sil, vad_max_len);
 
 		funasr::Audio* audio = ((funasr::FsmnVadOnline*)vad_online_handle)->audio_handle.get();
 
@@ -435,7 +455,7 @@ extern "C" {
 					p_result->tpass_msg = msg_punc;
 
 					// ITN
-					if(tpass_stream->UseITN()){
+					if(tpass_stream->UseITN() && itn){
 						string msg_itn = tpass_stream->itn_handle->Normalize(msg_punc);
 						p_result->tpass_msg = msg_itn;
 					}
@@ -487,7 +507,7 @@ extern "C" {
 				msg_punc += "。";
 			}
 			p_result->tpass_msg = msg_punc;
-			if(tpass_stream->UseITN()){
+				if(tpass_stream->UseITN() && itn){
 				string msg_itn = tpass_stream->itn_handle->Normalize(msg_punc);
 				p_result->tpass_msg = msg_itn;
 			}

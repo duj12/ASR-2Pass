@@ -1,15 +1,10 @@
 # -*- encoding: utf-8 -*-
 import os
-import time
 import websockets, ssl
 import asyncio
-# import threading
 import argparse
 import json
-import wave
-import traceback
 from multiprocessing import Process
-# from funasr.fileio.datadir_writer import DatadirWriter
 
 import logging
 
@@ -63,6 +58,19 @@ parser.add_argument("--ssl",
                     type=int,
                     default=0,
                     help="1 for ssl connect, 0 for no ssl")
+parser.add_argument("--use_itn",
+                    type=int,
+                    default=1,
+                    help="1 for using itn, 0 for not itn")
+parser.add_argument("--vad_tail_sil",
+                    type=int,
+                    default=800,
+                    help="tail silence length for VAD, if silence time exceed this value, VAD will cut. in ms")
+parser.add_argument("--vad_max_len",
+                    type=int,
+                    default=60000,
+                    help="max duration of a audio clip cut by VAD, in ms")
+
 parser.add_argument("--mode",
                     type=str,
                     default="2pass",
@@ -104,8 +112,13 @@ async def record_microphone():
                     input=True,
                     frames_per_buffer=CHUNK)
 
+    use_itn=True
+    if args.use_itn == 0:
+        use_itn=False
+    
     message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval,
-                          "wav_name": "microphone", "is_speaking": True})
+                          "wav_name": "microphone", "is_speaking": True, "itn": use_itn,
+                          "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len,})
     #voices.put(message)
     await websocket.send(message)
     while True:
@@ -134,6 +147,10 @@ async def record_from_scp(chunk_begin, chunk_size):
         hotwords = ' '.join(formatted_words)
     else:
         hotwords = args.hotword
+
+    use_itn=True
+    if args.use_itn == 0:
+        use_itn=False
 
     if chunk_size > 0:
         wavs = wavs[chunk_begin:chunk_begin + chunk_size]
@@ -175,7 +192,8 @@ async def record_from_scp(chunk_begin, chunk_size):
         # send first time
         hotword_msg=hotwords
         message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval,
-                          "wav_name": wav_name, "is_speaking": True, "hotwords":hotword_msg})
+                          "wav_name": wav_name, "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
+                          "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, })
         #voices.put(message)
         await websocket.send(message)
         is_speaking = True
@@ -230,17 +248,17 @@ async def message(id):
         
             meg = await websocket.recv()
             meg = json.loads(meg)
-            print(meg)
             wav_name = meg.get("wav_name", "demo")
             text = meg["text"]
             if args.output_dir is not None:
                 ibest_writer = open(os.path.join(args.output_dir, "{}.asr.txt".format(wav_name)), "a", encoding="utf-8")
             else:
                 ibest_writer = None
+
+            offline_msg_done = meg.get("is_final", False)
             timestamp=""
             if "timestamp" in meg:
                 timestamp = meg["timestamp"]
-                print(meg)
 
             if ibest_writer is not None:
                 if timestamp !="":
@@ -248,7 +266,9 @@ async def message(id):
                 else:
                     text_write_line = "{}\t{}\n".format(wav_name, text)
                 ibest_writer.write(text_write_line)
-                
+
+            if 'mode' not in meg:
+                continue
             if meg["mode"] == "online":
                 text_print += "{}".format(text)
                 text_print = text_print[-args.words_max_print:]
@@ -260,22 +280,21 @@ async def message(id):
                 else:
                     text_print += "{}".format(text)
 
-                # text_print = text_print[-args.words_max_print:]
-                # os.system('clear')
                 print("\rpid" + str(id) + ": " + wav_name + ": " + text_print)
                 offline_msg_done = True
             else:
                 if meg["mode"] == "2pass-online":
                     text_print_2pass_online += "{}".format(text)
                     text_print = text_print_2pass_offline + text_print_2pass_online
-                else:
+                else:   # 2pass-offline
                     text_print_2pass_online = ""
                     text_print = text_print_2pass_offline + "{}".format(text)
                     text_print_2pass_offline += "{}".format(text)
                 text_print = text_print[-args.words_max_print:]
                 os.system('clear')
                 print("\rpid" + str(id) + ": " + text_print)
-                offline_msg_done=True
+                if meg["is_final"]:
+                    offline_msg_done=True
 
     except Exception as e:
             print("Exception:", e)

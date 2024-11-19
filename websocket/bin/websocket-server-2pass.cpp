@@ -84,6 +84,7 @@ void WebSocketServer::do_decoder(
     std::vector<char>& buffer, websocketpp::connection_hdl& hdl,
     nlohmann::json& msg, std::vector<std::vector<std::string>>& punc_cache,
     std::vector<std::vector<float>> &hotwords_embedding,
+    bool itn, int vad_tail_sil, int vad_max_len,
     websocketpp::lib::mutex& thread_lock, bool& is_final, std::string wav_name,
     FUNASR_HANDLE& tpass_online_handle) {
   // lock for each connection
@@ -123,7 +124,8 @@ void WebSocketServer::do_decoder(
                                        subvector.data(), subvector.size(),
                                        punc_cache, false, msg["audio_fs"],
                                        msg["wav_format"], (ASR_TYPE)asr_mode_,
-                                       hotwords_embedding);
+                                       hotwords_embedding,
+                                       itn, vad_tail_sil, vad_max_len);
 
         } else {
           msg["access_num"]=(int)msg["access_num"]-1;
@@ -158,7 +160,8 @@ void WebSocketServer::do_decoder(
                                        buffer.data(), buffer.size(), punc_cache,
                                        is_final, msg["audio_fs"],
                                        msg["wav_format"], (ASR_TYPE)asr_mode_,
-                                       hotwords_embedding);
+                                       hotwords_embedding,
+                                       itn, vad_tail_sil, vad_max_len);
         } else {
           msg["access_num"]=(int)msg["access_num"]-1;	 
           return;
@@ -207,6 +210,9 @@ void WebSocketServer::on_open(websocketpp::connection_hdl hdl) {
 
     data_msg->msg = nlohmann::json::parse("{}");
     data_msg->msg["wav_format"] = "pcm";
+    data_msg->msg["itn"] = true;
+    data_msg->msg["vad_tail_sil"] = 800;
+    data_msg->msg["vad_max_len"] = 60000;
     data_msg->msg["audio_fs"] = 16000;
     data_msg->msg["access_num"] = 0; // the number of access for this object, when it is 0, we can free it saftly
     data_msg->msg["is_eof"]=false; // if this connection is closed
@@ -387,6 +393,15 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
           msg_data->tpass_online_handle = tpass_online_handle;
         }
       }
+      if (jsonresult.contains("itn")) {
+        msg_data->msg["itn"] = jsonresult["itn"];
+      }
+      if (jsonresult.contains("vad_tail_sil")) {
+          msg_data->msg["vad_tail_sil"] = jsonresult["vad_tail_sil"];
+      }
+      if (jsonresult.contains("vad_max_len")) {
+          msg_data->msg["vad_max_len"] = jsonresult["vad_max_len"];
+      }
       LOG(INFO) << "jsonresult=" << jsonresult
                 << ", msg_data->msg=" << msg_data->msg;
       if (jsonresult["is_speaking"] == false ||
@@ -402,6 +417,9 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
                         std::move(*(sample_data_p.get())), std::move(hdl),
                         std::ref(msg_data->msg), std::ref(*(punc_cache_p.get())),
                         std::move(hotwords_embedding_),
+                        msg_data->msg["itn"],
+                        msg_data->msg["vad_tail_sil"],
+                        msg_data->msg["vad_max_len"],
                         std::ref(*thread_lock_p), std::move(true),
                         msg_data->msg["wav_name"],
                         std::ref(msg_data->tpass_online_handle)));
@@ -445,6 +463,9 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
                                 std::ref(msg_data->msg),
                                 std::ref(*(punc_cache_p.get())),
                                 std::move(hotwords_embedding_),
+                                msg_data->msg["itn"],
+                                msg_data->msg["vad_tail_sil"],
+                                msg_data->msg["vad_max_len"],
                                 std::ref(*thread_lock_p), std::move(false),
                                 msg_data->msg["wav_name"],
                                 std::ref(msg_data->tpass_online_handle)));

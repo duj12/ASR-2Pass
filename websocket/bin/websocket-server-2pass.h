@@ -116,6 +116,7 @@ class WebSocketServer {
                   nlohmann::json& msg,
                   std::vector<std::vector<std::string>>& punc_cache,
                   std::vector<std::vector<float>> &hotwords_embedding,
+                  bool itn, int vad_tail_sil, int vad_max_len,
                   websocketpp::lib::mutex& thread_lock, bool& is_final,
                   std::string wav_name,
                   FUNASR_HANDLE& tpass_online_handle);

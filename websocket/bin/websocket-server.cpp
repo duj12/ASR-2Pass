@@ -58,8 +58,8 @@ void WebSocketServer::do_decoder(const std::vector<char>& buffer,
                                  websocketpp::connection_hdl& hdl,
                                  websocketpp::lib::mutex& thread_lock,
                                  std::vector<std::vector<float>> &hotwords_embedding,
-                                 std::string wav_name,
-                                 std::string wav_format) {
+                                 bool itn, int vad_tail_sil, int vad_max_len,
+                                 std::string wav_name, std::string wav_format) {
   scoped_lock guard(thread_lock);
   try {
     int num_samples = buffer.size();  // the size of the buf
@@ -69,7 +69,8 @@ void WebSocketServer::do_decoder(const std::vector<char>& buffer,
       std::string stamp_res;
       try{
         FUNASR_RESULT Result = FunOfflineInferBuffer(
-            asr_hanlde, buffer.data(), buffer.size(), RASR_NONE, NULL, hotwords_embedding, 16000, wav_format);
+            asr_hanlde, buffer.data(), buffer.size(), RASR_NONE, NULL, hotwords_embedding,
+            itn, vad_tail_sil, vad_max_len, 16000, wav_format);
 
         asr_result = ((FUNASR_RECOG_RESULT*)Result)->msg;  // get decode result
         stamp_res = ((FUNASR_RECOG_RESULT*)Result)->stamp;
@@ -132,6 +133,9 @@ void WebSocketServer::on_open(websocketpp::connection_hdl hdl) {
   data_msg->thread_lock = std::make_shared<websocketpp::lib::mutex>();
   data_msg->msg = nlohmann::json::parse("{}");
   data_msg->msg["wav_format"] = "pcm";
+  data_msg->msg["itn"] = true;
+  data_msg->msg["vad_tail_sil"] = 800;
+  data_msg->msg["vad_max_len"] = 60000;
   data_map.emplace(hdl, data_msg);
   LOG(INFO) << "on_open, active connections: " << data_map.size();
 }
@@ -273,7 +277,15 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
                 std::make_shared<std::vector<std::vector<float>>>(new_hotwords_embedding);
         }
       }
-
+      if (jsonresult.contains("itn")) {
+        msg_data->msg["itn"] = jsonresult["itn"];
+      }
+      if (jsonresult.contains("vad_tail_sil")) {
+          msg_data->msg["vad_tail_sil"] = jsonresult["vad_tail_sil"];
+      }
+      if (jsonresult.contains("vad_max_len")) {
+          msg_data->msg["vad_max_len"] = jsonresult["vad_max_len"];
+      }
       if (jsonresult["is_speaking"] == false ||
           jsonresult["is_finished"] == true) {
         LOG(INFO) << "client done";
@@ -289,6 +301,9 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
                               std::move(hdl), 
                               std::ref(*thread_lock_p),
                               std::move(hotwords_embedding_),
+                              msg_data->msg["itn"],
+                              msg_data->msg["vad_tail_sil"],
+                              msg_data->msg["vad_max_len"],
                               msg_data->msg["wav_name"],
                               msg_data->msg["wav_format"]));
       }
