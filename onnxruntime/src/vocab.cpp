@@ -24,6 +24,10 @@ void Vocab::LoadVocabFromYaml(const char* filename){
     YAML::Node config;
     try{
         config = YAML::LoadFile(filename);
+		YAML::Node lang_conf = config["lang"];
+        if (lang_conf.IsDefined()){
+            language = lang_conf.as<string>();
+        }
     }catch(exception const &e){
         LOG(INFO) << "Error loading file, yaml file error or not exist.";
         exit(-1);
@@ -35,13 +39,40 @@ void Vocab::LoadVocabFromYaml(const char* filename){
         token_id[it->as<string>()] = i;
         i ++;
     }
+	
 }
 
-int Vocab::GetIdByToken(const std::string &token) {
-    if (token_id.count(token)) {
-        return token_id[token];
+void Vocab::LoadLex(const char* filename){
+    std::ifstream file(filename);
+    std::string line;
+    while (std::getline(file, line)) {
+        std::string key, value;
+        std::istringstream iss(line);
+        std::getline(iss, key, '\t');
+        std::getline(iss, value);
+
+        if (!key.empty() && !value.empty()) {
+            lex_map[key] = value;
+        }
     }
-    return 0;
+
+    file.close();
+}
+
+string Vocab::Word2Lex(const std::string &word) const {
+    auto it = lex_map.find(word);
+    if (it != lex_map.end()) {
+        return it->second;
+    }
+    return "";
+}
+
+int Vocab::GetIdByToken(const std::string &token) const {
+    auto it = token_id.find(token);
+    if (it != token_id.end()) {
+        return it->second;
+    }
+    return -1;
 }
 
 void Vocab::Vector2String(vector<int> in, std::vector<std::string> &preds)
@@ -50,6 +81,16 @@ void Vocab::Vector2String(vector<int> in, std::vector<std::string> &preds)
         string word = vocab[*it];
         preds.emplace_back(word);
     }
+}
+
+string Vocab::Vector2String(vector<int> in)
+{
+    int i;
+    stringstream ss;
+    for (auto it = in.begin(); it != in.end(); it++) {
+        ss << vocab[*it];
+    }
+    return ss.str();
 }
 
 int Str2Int(string str)
@@ -61,6 +102,16 @@ int Str2Int(string str)
     int val = ((ch_array[0] & 0x0f) << 12) | ((ch_array[1] & 0x3f) << 6) |
               (ch_array[2] & 0x3f);
     return val;
+}
+
+string Vocab::Id2String(int id) const
+{
+  if (id < 0 || id >= vocab.size()) {
+    LOG(INFO) << "Error vocabulary id, this id do not exit.";
+    return "";
+  } else {
+    return vocab[id];
+  }
 }
 
 bool Vocab::IsChinese(string ch)
@@ -75,6 +126,21 @@ bool Vocab::IsChinese(string ch)
     return false;
 }
 
+string Vocab::WordFormat(std::string word)
+{
+    if(word == "i"){
+        return "I";
+    }else if(word == "i'm"){
+        return "I'm";
+    }else if(word == "i've"){
+        return "I've";
+    }else if(word == "i'll"){
+        return "I'll";
+    }else{
+        return word;
+    }
+}
+
 string Vocab::Vector2StringV2(vector<int> in)
 {
     int i;
@@ -82,21 +148,49 @@ string Vocab::Vector2StringV2(vector<int> in)
     int is_pre_english = false;
     int pre_english_len = 0;
     int is_combining = false;
-    string combine = "";
+    std::string combine = "";
+    std::string unicodeChar = "▁";
 
-    for (auto it = in.begin(); it != in.end(); it++) {
-        string word = vocab[*it];
+    for (i=0; i<in.size(); i++){
+        string word = vocab[in[i]];
         // step1 space character skips
         if (word == "<s>" || word == "</s>" || word == "<unk>")
             continue;
+        if (language == "en-bpe"){
+            size_t found = word.find(unicodeChar);
+            if(found != std::string::npos){
+                if (combine != ""){
+                    combine = WordFormat(combine);
+                    if (words.size() != 0){
+                        combine = " " + combine;
+                    }
+                    words.push_back(combine);
+                }
+                combine = word.substr(3);
+            }else{
+                combine += word;
+            }
+            continue;
+        }
         // step2 combie phoneme to full word
         {
             int sub_word = !(word.find("@@") == string::npos);
             // process word start and middle part
             if (sub_word) {
-                combine += word.erase(word.length() - 2);
-                is_combining = true;
-                continue;
+                // if badcase: lo@@ chinese
+                if (i == in.size()-1 || i<in.size()-1 && IsChinese(vocab[in[i+1]])){
+                    word = word.erase(word.length() - 2) + " ";
+                    if (is_combining) {
+                        combine += word;
+                        is_combining = false;
+                        word = combine;
+                        combine = "";
+                    }
+                }else{
+                    combine += word.erase(word.length() - 2);
+                    is_combining = true;
+                    continue;
+                }
             }
             // process word end part
             else if (is_combining) {
@@ -147,6 +241,14 @@ string Vocab::Vector2StringV2(vector<int> in)
         }
     }
 
+    if (language == "en-bpe" && combine != ""){
+        combine = WordFormat(combine);
+        if (words.size() != 0){
+            combine = " " + combine;
+        }
+        words.push_back(combine);
+    }
+
     stringstream ss;
     for (auto it = words.begin(); it != words.end(); it++) {
         ss << *it;
@@ -155,7 +257,7 @@ string Vocab::Vector2StringV2(vector<int> in)
     return ss.str();
 }
 
-int Vocab::Size()
+int Vocab::Size() const
 {
     return vocab.size();
 }

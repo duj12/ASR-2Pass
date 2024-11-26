@@ -4,7 +4,7 @@ build=build  # the build dir
 # Build websocket service, with onnxruntime
 if [ ! -f $build/bin/funasr-wss-server-2pass ]; then
   echo "1st time run, we need to build the server, which may take a while."
-  apt-get update && apt-get install libopenblas-dev libssl-dev cmake build-essential
+  apt-get update && apt-get install -y libopenblas-dev libssl-dev cmake build-essential
 
   if [ ! -d ffmpeg-N-111383-g20b8688092-linux64-gpl-shared ]; then
     bash ../onnxruntime/third_party/download_ffmpeg.sh

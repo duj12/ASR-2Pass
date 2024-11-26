@@ -22,21 +22,12 @@ fi
 
 
 download_model_dir="models"
-# now the hotword model and timestamp model is two different model
-# you can choose the following 3 model to use which you want, by comment the others.
-# model_dir="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx"            # offline base model
-model_dir="damo/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404-onnx" # hotword model
-# model_dir="damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-onnx"   # timestamp model
-
-# the online model is better to use the small one, if you want to use the large, comment the small model line.
-# online_model_dir="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx"  # large online model
-online_model_dir="damo/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online-onnx"        # small online model
 vad_dir="damo/speech_fsmn_vad_zh-cn-16k-common-onnx"
-punc_dir="damo/punc_ct-transformer_zh-cn-common-vocab272727-onnx"
-itn_dir="damo/fst_itn_zh"
+model_dir="damo/speech_paraformer-large_asr_nat-en-16k-common-vocab10020-onnx"
+punc_dir="damo/punc_ct-transformer_cn-en-common-vocab471067-large-onnx"
 decoder_thread_num=16
 io_thread_num=4
-port=10097
+port=10098
 quantize=true
 certfile="../ssl_key/server.crt"
 keyfile="../ssl_key/server.key"
@@ -50,7 +41,7 @@ $build/bin/funasr-wss-server  \
   --quantize $quantize  \
   --vad-dir ${vad_dir} \
   --punc-dir ${punc_dir} \
-  --itn-model-dir ${itn_dir}  \
+  --itn-model-dir ""  \
   --decoder-thread-num ${decoder_thread_num} \
   --io-thread-num  ${io_thread_num} \
   --port ${port} \
