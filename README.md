@@ -7,28 +7,31 @@
 cd asr-2pass/websocket
 
 # the following script will make websocket with onnxruntime when runing at first time. And the libs and models needed will be downloaded.
-# the port is default: 10095, you can change it by yourself.
-bash ./run_server_2pass_ssl.sh  &
+# the port is default: 10095, you can change it by yourself with "--port xxxxx".
+bash ./run_server_2pass_ssl.sh --port 10095 &
 ```
 不同服务启动脚本说明：
 ```text
 a.流式ASR服务，适用于流式语音输入、长音频输入。输出视音频内容会分多个片段，最终结果返回时会服务端会给出特定标志。
   run_server_2pass_ssl.sh
-    加载热词版本非流式模型，流式标点模型，ssl开启
+    加载热词版本非流式模型，流式标点模型，ssl开启。默认端口10095
 
   run_server_2pass.sh
-    加载热词版本非流式模型，非流式标点模型(适用于单句文本上屏显示)，ssl关闭
+    加载热词版本非流式模型，非流式标点模型(适用于单句文本上屏显示)，ssl关闭。默认端口10095
     
   run_server_2pass_stream_punc.sh
-    加载热词版本非流式模型，流式标点模型(适用于多句文本拼接后显示，标点预测更准确)，ssl关闭
+    加载热词版本非流式模型，流式标点模型(适用于多句文本拼接后显示，标点预测更准确)，ssl关闭。默认端口10095
 
   run_server_2pass_tp.sh
-    加载时间戳版本的非流式模型（可获取每个汉字时间戳），不加载ITN(避免ITN后时长不对齐)，加载流式标点模型，ssl关闭
+    加载时间戳版本的非流式模型（可获取每个汉字时间戳），不加载ITN(避免ITN后时长不对齐)，加载流式标点模型，ssl关闭。默认端口10096
   
   
 b.非流式ASR服务，适用于长音频转写。整段音频输入，一次输出完整ASR结果。
   run_server_offline.sh
-    加载热词版本非流式模型，非流式标点模型，ssl关闭。
+    加载热词版本非流式模型，非流式标点模型，ssl关闭。默认端口10097
+  
+  run_server_offline_en.sh
+    加载英文非流式模型，非流式中英通用标点大模型，不使用ITN，ssl关闭。默认端口10098
 ```
 
 
