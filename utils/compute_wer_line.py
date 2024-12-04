@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
-import re, sys, unicodedata
-import codecs
+import sys, unicodedata
 
 remove_tag = True
 spacelist = [' ', '\t', '\r', '\n']
-puncts = ['!', ',', '?',
-          '、', '。', '！', '，', '；', '？',
+puncts = ['!', ',', '?', '、', '。', '！', '，', '；', '？',
           '：', '「', '」', '︰', '『', '』', '《', '》']
 
 
@@ -35,7 +32,7 @@ def characterize(string):
             j = i + 1
             while j < len(string):
                 c = string[j]
-                if ord(c) >= 128 or (c in spacelist) or (c == sep):
+                if ord(c) >= 128 or (c in spacelist) or (c == sep) or (c in puncts):
                     break
                 j += 1
             if j < len(string) and string[j] == '>':
@@ -192,8 +189,8 @@ class Calculator:
             elif self.space[i][j]['error'] == 'non':  # starting point
                 break
             else:  # shouldn't reach here
-                print(
-                    'this should not happen , i = {i} , j = {j} , error = {error}'.format(
+                print('this should not happen , i = {i} , j = {j} , '
+                      'error = {error}'.format(
                         i=i, j=j, error=self.space[i][j]['error']))
         return result
 
@@ -274,101 +271,18 @@ def default_cluster(word):
 
 
 def usage():
-    print(
-        "compute-wer.py : compute word error rate (WER) and align recognition results and references.")
-    print(
-        "         usage : python compute-wer.py [--cs={0,1}] [--cluster=foo] [--ig=ignore_file] [--char={0,1}] [--v={0,1}] [--padding-symbol={space,underline}] test.ref test.hyp > test.wer")
+    print("compute_wer_line.py : compute word error rate (WER) and align recognition results and references.")
+    print("usage : python compute-wer.py  REF_TEXT, HYP_TEXT")
 
 
-if __name__ == '__main__':
-    if len(sys.argv) == 1:
-        usage()
-        sys.exit(0)
+def compute_wer_line(label_text, recog_text, tochar=True, verbose=0):
     calculator = Calculator()
     cluster_file = ''
     ignore_words = set()
-    tochar = False
-    verbose = 1
     padding_symbol = ' '
     case_sensitive = False
     max_words_per_line = sys.maxsize
     split = None
-    while len(sys.argv) > 3:
-        a = '--maxw='
-        if sys.argv[1].startswith(a):
-            b = sys.argv[1][len(a):]
-            del sys.argv[1]
-            max_words_per_line = int(b)
-            continue
-        a = '--rt='
-        if sys.argv[1].startswith(a):
-            b = sys.argv[1][len(a):].lower()
-            del sys.argv[1]
-            remove_tag = (b == 'true') or (b != '0')
-            continue
-        a = '--cs='
-        if sys.argv[1].startswith(a):
-            b = sys.argv[1][len(a):].lower()
-            del sys.argv[1]
-            case_sensitive = (b == 'true') or (b != '0')
-            continue
-        a = '--cluster='
-        if sys.argv[1].startswith(a):
-            cluster_file = sys.argv[1][len(a):]
-            del sys.argv[1]
-            continue
-        a = '--splitfile='
-        if sys.argv[1].startswith(a):
-            split_file = sys.argv[1][len(a):]
-            del sys.argv[1]
-            split = dict()
-            with codecs.open(split_file, 'r', 'utf-8') as fh:
-                for line in fh:  # line in unicode
-                    words = line.strip().split()
-                    if len(words) >= 2:
-                        split[words[0]] = words[1:]
-            continue
-        a = '--ig='
-        if sys.argv[1].startswith(a):
-            ignore_file = sys.argv[1][len(a):]
-            del sys.argv[1]
-            with codecs.open(ignore_file, 'r', 'utf-8') as fh:
-                for line in fh:  # line in unicode
-                    line = line.strip()
-                    if len(line) > 0:
-                        ignore_words.add(line)
-            continue
-        a = '--char='
-        if sys.argv[1].startswith(a):
-            b = sys.argv[1][len(a):].lower()
-            del sys.argv[1]
-            tochar = (b == 'true') or (b != '0')
-            continue
-        a = '--v='
-        if sys.argv[1].startswith(a):
-            b = sys.argv[1][len(a):].lower()
-            del sys.argv[1]
-            verbose = 0
-            try:
-                verbose = int(b)
-            except:
-                if b == 'true' or b != '0':
-                    verbose = 1
-            continue
-        a = '--padding-symbol='
-        if sys.argv[1].startswith(a):
-            b = sys.argv[1][len(a):].lower()
-            del sys.argv[1]
-            if b == 'space':
-                padding_symbol = ' '
-            elif b == 'underline':
-                padding_symbol = '_'
-            continue
-        if True or sys.argv[1].startswith('-'):
-            # ignore invalid switch
-            del sys.argv[1]
-            continue
-
     if not case_sensitive:
         ig = set([w.upper() for w in ignore_words])
         ignore_words = ig
@@ -376,9 +290,6 @@ if __name__ == '__main__':
     default_clusters = {}
     default_words = {}
 
-    ref_file = sys.argv[1]
-    hyp_file = sys.argv[2]
-    rec_set = {}
     if split and not case_sensitive:
         newsplit = dict()
         for w in split:
@@ -388,101 +299,78 @@ if __name__ == '__main__':
             newsplit[w.upper()] = words
         split = newsplit
 
-    with codecs.open(hyp_file, 'r', 'utf-8') as fh:
-        for line in fh:
-            line = line.strip().split(maxsplit=1)
-            if len(line) <= 1: continue
-            fid = line[0]
-            line = line[1]
-            if tochar:
-                array = characterize(line)
-            else:
-                array = line.strip().split()
-            rec_set[fid] = normalize(array, ignore_words, case_sensitive, split)
+    if tochar:
+        array = characterize(label_text)
+    else:
+        array = label_text.strip().split()
+    lab = normalize(array, ignore_words, case_sensitive, split)
 
-    # compute error rate on the interaction of reference file and hyp file
-    for line in open(ref_file, 'r', encoding='utf-8'):
-        line = line.strip().split(maxsplit=1)
-        if len(line) == 1: continue
-        fid = line[0]
-        line = line[1]
-        if tochar:
-            array = characterize(line)
-        else:
-            array = line.rstrip('\n').split()
+    if tochar:
+        array = characterize(recog_text)
+    else:
+        array = recog_text.strip().split()
+    rec = normalize(array, ignore_words, case_sensitive, split)
 
-        if fid not in rec_set:
-            continue
-        lab = normalize(array, ignore_words, case_sensitive, split)
-        rec = rec_set[fid]
-        if verbose:
-            print('\nutt: %s' % fid)
+    for word in rec + lab:
+        if word not in default_words:
+            default_cluster_name = default_cluster(word)
+            if default_cluster_name not in default_clusters:
+                default_clusters[default_cluster_name] = {}
+            if word not in default_clusters[default_cluster_name]:
+                default_clusters[default_cluster_name][word] = 1
+            default_words[word] = default_cluster_name
 
-        for word in rec + lab:
-            if word not in default_words:
-                default_cluster_name = default_cluster(word)
-                if default_cluster_name not in default_clusters:
-                    default_clusters[default_cluster_name] = {}
-                if word not in default_clusters[default_cluster_name]:
-                    default_clusters[default_cluster_name][word] = 1
-                default_words[word] = default_cluster_name
-
-        result = calculator.calculate(lab, rec)
-        if verbose:
-            if result['all'] != 0:
-                wer = float(
-                    result['ins'] + result['sub'] + result['del']) * 100.0 / \
-                      result['all']
-            else:
-                wer = 0.0
-            print('WER: %4.2f %%' % wer, end=' ')
-            print('N=%d C=%d S=%d D=%d I=%d' %
-                  (result['all'], result['cor'], result['sub'], result['del'],
-                   result['ins']))
-            space = {}
-            space['lab'] = []
-            space['rec'] = []
-            for idx in range(len(result['lab'])):
-                len_lab = width(result['lab'][idx])
-                len_rec = width(result['rec'][idx])
-                length = max(len_lab, len_rec)
-                space['lab'].append(length - len_lab)
-                space['rec'].append(length - len_rec)
-            upper_lab = len(result['lab'])
-            upper_rec = len(result['rec'])
-            lab1, rec1 = 0, 0
-            while lab1 < upper_lab or rec1 < upper_rec:
-                if verbose > 1:
-                    print('lab(%s):' % fid.encode('utf-8'), end=' ')
-                else:
-                    print('lab:', end=' ')
-                lab2 = min(upper_lab, lab1 + max_words_per_line)
-                for idx in range(lab1, lab2):
-                    token = result['lab'][idx]
-                    print('{token}'.format(token=token), end='')
-                    for n in range(space['lab'][idx]):
-                        print(padding_symbol, end='')
-                    print(' ', end='')
-                print()
-                if verbose > 1:
-                    print('rec(%s):' % fid.encode('utf-8'), end=' ')
-                else:
-                    print('rec:', end=' ')
-                rec2 = min(upper_rec, rec1 + max_words_per_line)
-                for idx in range(rec1, rec2):
-                    token = result['rec'][idx]
-                    print('{token}'.format(token=token), end='')
-                    for n in range(space['rec'][idx]):
-                        print(padding_symbol, end='')
-                    print(' ', end='')
-                print('\n', end='\n')
-                lab1 = lab2
-                rec1 = rec2
-
+    result = calculator.calculate(lab, rec)
     if verbose:
-        print(
-            '===========================================================================')
-        print()
+        if result['all'] != 0:
+            wer = float(
+                result['ins'] + result['sub'] + result['del']) * 100.0 / \
+                  result['all']
+        else:
+            wer = 0.0
+        print('WER: %4.2f %%' % wer, end=' ')
+        print('N=%d C=%d S=%d D=%d I=%d' %
+              (result['all'], result['cor'], result['sub'], result['del'],
+               result['ins']))
+        space = {}
+        space['lab'] = []
+        space['rec'] = []
+        for idx in range(len(result['lab'])):
+            len_lab = width(result['lab'][idx])
+            len_rec = width(result['rec'][idx])
+            length = max(len_lab, len_rec)
+            space['lab'].append(length - len_lab)
+            space['rec'].append(length - len_rec)
+        upper_lab = len(result['lab'])
+        upper_rec = len(result['rec'])
+        lab1, rec1 = 0, 0
+        while lab1 < upper_lab or rec1 < upper_rec:
+            if verbose > 1:
+                print('lab:', end=' ')
+            else:
+                print('lab:', end=' ')
+            lab2 = min(upper_lab, lab1 + max_words_per_line)
+            for idx in range(lab1, lab2):
+                token = result['lab'][idx]
+                print('{token}'.format(token=token), end='')
+                for n in range(space['lab'][idx]):
+                    print(padding_symbol, end='')
+                print(' ', end='')
+            print()
+            if verbose > 1:
+                print('rec:', end=' ')
+            else:
+                print('rec:', end=' ')
+            rec2 = min(upper_rec, rec1 + max_words_per_line)
+            for idx in range(rec1, rec2):
+                token = result['rec'][idx]
+                print('{token}'.format(token=token), end='')
+                for n in range(space['rec'][idx]):
+                    print(padding_symbol, end='')
+                print(' ', end='')
+            print('\n', end='\n')
+            lab1 = lab2
+            rec1 = rec2
 
     result = calculator.overall()
     if result['all'] != 0:
@@ -490,12 +378,23 @@ if __name__ == '__main__':
               result['all']
     else:
         wer = 0.0
-    print('Overall -> %4.2f %%' % wer, end=' ')
-    print('N=%d C=%d S=%d D=%d I=%d' %
-          (result['all'], result['cor'], result['sub'], result['del'],
-           result['ins']))
-    if not verbose:
+
+    if verbose:
+        print('===========================================================================')
         print()
+        print('Overall -> %4.2f %%' % wer, end=' ')
+        print('N=%d C=%d S=%d D=%d I=%d' %
+              (result['all'], result['cor'], result['sub'], result['del'],
+               result['ins']))
+
+    return_result = {
+        'wer': wer/100.0,
+        'all': result['all'],
+        'cor': result['cor'],
+        'sub': result['sub'],
+        'del': result['del'],
+        'ins': result['ins'],
+    }
 
     if verbose:
         for cluster_id in default_clusters:
@@ -509,7 +408,8 @@ if __name__ == '__main__':
                 wer = 0.0
             print('%s -> %4.2f %%' % (cluster_id, wer), end=' ')
             print('N=%d C=%d S=%d D=%d I=%d' %
-                  (result['all'], result['cor'], result['sub'], result['del'],
+                  (result['all'], result['cor'], result['sub'],
+                   result['del'],
                    result['ins']))
         if len(cluster_file) > 0:  # compute separated WERs for word clusters
             cluster_id = ''
@@ -517,12 +417,14 @@ if __name__ == '__main__':
             for line in open(cluster_file, 'r', encoding='utf-8'):
                 for token in line.decode('utf-8').rstrip('\n').split():
                     # end of cluster reached, like </Keyword>
-                    if token[0:2] == '</' and token[len(token) - 1] == '>' and \
+                    if token[0:2] == '</' and token[
+                        len(token) - 1] == '>' and \
                             token.lstrip('</').rstrip('>') == cluster_id:
                         result = calculator.cluster(cluster)
                         if result['all'] != 0:
-                            wer = float(result['ins'] + result['sub'] + result[
-                                'del']) * 100.0 / result['all']
+                            wer = float(
+                                result['ins'] + result['sub'] + result[
+                                    'del']) * 100.0 / result['all']
                         else:
                             wer = 0.0
                         print('%s -> %4.2f %%' % (cluster_id, wer), end=' ')
@@ -532,12 +434,29 @@ if __name__ == '__main__':
                         cluster_id = ''
                         cluster = []
                     # begin of cluster reached, like <Keyword>
-                    elif token[0] == '<' and token[len(token) - 1] == '>' and \
+                    elif token[0] == '<' and token[
+                        len(token) - 1] == '>' and \
                             cluster_id == '':
                         cluster_id = token.lstrip('<').rstrip('>')
                         cluster = []
                     # general terms, like WEATHER / CAR / ...
                     else:
                         cluster.append(token)
-        print()
-        print('===========================================================================')
+    return return_result
+
+if __name__ == '__main__':
+    # if len(sys.argv) == 1:
+    #     usage()
+    #     sys.exit(0)
+    #
+    # ref = sys.argv[1].strip()
+    # hyp = sys.argv[2].strip()
+    ref = "Hello world, everyone, 你好世界！"
+    hyp = "hello anyone, 你好好四姐。"
+
+    result = compute_wer_line(ref, hyp, verbose=1)
+
+    print(result)
+
+
+
