@@ -7,7 +7,12 @@ import ssl
 import json
 import argparse
 import logging
-logging.basicConfig(level=logging.INFO)
+
+logging.basicConfig(level=logging.INFO,
+                    format="[%(asctime)s.%(msecs)03d] %(levelname)s "
+                           "[%(name)s.%(funcName)s:%(lineno)d] %(message)s",
+                    datefmt="%Y-%m-%d %H:%M:%S")
+logger = logging.getLogger()
 
 
 def parse_args():
@@ -36,7 +41,7 @@ def parse_args():
                         help="hotword, *.txt(one hotword perline) or hotwords seperate by space (could be: 语音识别 热词)")
     parser.add_argument("--audio_in",
                         type=str,
-                        default="../audio/test.mp4",
+                        default="../audio/xmov.wav",
                         help="input audio, could be path, or 1d-numpy of samples")
     parser.add_argument("--audio_sr",
                         type=int,
@@ -97,12 +102,17 @@ class ASR_Client:
 
         self.websocket = None
         self.asr_mode=mode
-        self.asr_result = ""
+        self.asr_result = ""  # 最终识别结果
+        self.asr_stream = ""  # 流式结果
         self.uri = uri
         self.ssl_context = ssl_context
 
+    async def clear_cache(self):
+        self.asr_result = ""
+        self.asr_stream = ""
+
     async def connect(self):
-        print("Connecting to", self.uri)
+        logger.info(f"Connecting to {self.uri}")
         self.websocket = await websockets.connect(
             self.uri, subprotocols=["binary"],
             ping_interval=None, ssl=self.ssl_context)
@@ -110,29 +120,17 @@ class ASR_Client:
     async def send_message(self, args):
         if self.websocket:
             if os.path.isfile(args.audio_in):
-                import ffmpeg
-                try:
-                    # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
-                    audio_bytes, _ = (
-                        ffmpeg.input(args.audio_in, threads=0)
-                            .output("-", format="s16le", acodec="pcm_s16le",
-                                    ac=1, ar=16000)
-                            .run(cmd=["ffmpeg", "-nostdin"],
-                                 capture_stdout=True, capture_stderr=True)
-                    )
-                except ffmpeg.Error as e:
-                    audio_bytes = []
-                    logging.error(
-                        f"Failed to load audio {args.audio_in}: {e.stderr.decode()}")
-
+                audio = librosa.load(args.audio_in, sr=args.audio_sr)[0]
             elif isinstance(args.audio_in, numpy.ndarray):
-                audio = librosa.resample(
-                    args.audio_in, args.audio_sr, 16000)
-                audio = (audio * 32768).astype(numpy.int16) # convert into int 16
-                audio_bytes = audio.tobytes()
-
+                audio = args.audio_in
             else:
-                raise NotImplementedError(f"{args.audio_in} format not support.")
+                raise NotImplementedError(
+                    f"{args.audio_in} format not support.")
+
+            audio = librosa.resample(
+                audio, orig_sr=args.audio_sr, target_sr=16000)
+            audio = (audio * 32768).astype(numpy.int16)  # convert into int16
+            audio_bytes = audio.tobytes()
 
             stride = int(60 * args.chunk_size[
                 1] / args.chunk_interval / 1000 * 16000 * 2)
@@ -175,28 +173,30 @@ class ASR_Client:
                         # last chunk.
                         await self.websocket.send(message)
         else:
-            print("WebSocket connection is not established.")
+            logger.error("WebSocket connection is not established.")
 
     async def receive_message(self):
         if self.websocket:
             while True:
                 message = await self.websocket.recv()
-                text, is_final = await self.parse_message(message)
-                self.asr_result += text
-                if is_final or self.asr_mode=="offline":
+                meg = json.loads(message)
+                if 'mode' not in meg:
+                    continue
+                mode = meg['mode']
+                if mode == 'offline' or mode == '2pass-offline':
+                    self.asr_result += meg["text"]
+                    logger.info(f"ASR {mode} result: {self.asr_result}")
+                    self.asr_stream = ""  # 流式缓存清空
+                else:  # online/2pass-online 结果放到缓存里面
+                    self.asr_stream += meg['text']
+                    logger.info(f"ASR {mode} stream: {self.asr_stream}")
+
+                # 流式时需要is_final去告诉客户端这是最后一次返回结果
+                is_final = meg.get("is_final", False)
+                if is_final or mode=="offline":
                     break
         else:
-            print("WebSocket connection is not established.")
-
-    async def parse_message(self, message):
-        meg = json.loads(message)
-        mode = meg.get("mode", "null")
-        if "offline" in mode:
-            text = meg["text"]
-        else:  # 流式识别临时结果
-            text = ""
-        is_final = meg.get("is_final", False)
-        return text, is_final
+            logger.error("WebSocket connection is not established.")
 
     async def close(self):
         if self.websocket:
@@ -208,13 +208,13 @@ async def main():
     client = ASR_Client(args.host, args.port, args.mode)
     await client.connect()
 
-    # Send messages
-    await client.send_message(args)
-
-    # Process messages received
-    await client.receive_message()
-
-    logging.info(f"ASR result： {client.asr_result}")
+    for i in range(10):
+        # Send messages
+        await client.send_message(args)
+        # Process messages received
+        await client.receive_message()
+        logger.info(f"ASR total result： {client.asr_result}")
+        await client.clear_cache()
 
     await client.close()
 
