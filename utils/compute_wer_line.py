@@ -5,7 +5,7 @@ import sys, unicodedata
 
 remove_tag = True
 spacelist = [' ', '\t', '\r', '\n']
-puncts = ['!', ',', '?', '、', '。', '！', '，', '；', '？',
+puncts = ['!', ',', '.', '?', '、', '。', '！', '，', '；', '？',
           '：', '「', '」', '︰', '『', '』', '《', '》']
 
 
@@ -451,8 +451,8 @@ if __name__ == '__main__':
     #
     # ref = sys.argv[1].strip()
     # hyp = sys.argv[2].strip()
-    ref = "Hello world, everyone, 你好世界！"
-    hyp = "hello anyone, 你好好四姐。"
+    ref = "Hello world, everyone. 你好世界！"
+    hyp = "hello, anyone. 你好好四姐。"
 
     result = compute_wer_line(ref, hyp, verbose=1)
 
