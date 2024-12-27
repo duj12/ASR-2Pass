@@ -10,7 +10,7 @@ RUN git clone https://git.xmov.ai/dujing/asr-2pass.git
 # 切换到 websocket 目录
 WORKDIR /asr-2pass/websocket
 
-echo $SVN_USERNAME
+RUN echo $SVN_USERNAME
 
 # 使用 SVN 获取模型
 RUN svn checkout --username $SVN_USERNAME --password $SVN_PASSWORD svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models
