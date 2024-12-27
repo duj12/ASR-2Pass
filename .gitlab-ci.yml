@@ -1,0 +1,10 @@
+variables:
+  CD_CHART_REPOS: 'asr-2pass'
+  IMAGE_NAMES: 'asr-2pass'
+
+include:
+  - project: 'devops1/gitlab-ci'
+    file: 'templates/backend-ci-template.yml'
+
+stages:
+  - build
