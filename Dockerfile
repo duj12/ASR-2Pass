@@ -5,10 +5,12 @@ FROM ubuntu:22.04
 RUN apt update && apt install -y git subversion
 
 # 克隆 git 仓库
-RUN git clone https://git.xmov.ai/dujing/asr-2pass.git
+RUN mkdir -p /opt/asr-2pass
+
+COPY . /opt/asr-2pass
 
 # 切换到 websocket 目录
-WORKDIR /asr-2pass/websocket
+WORKDIR /opt/asr-2pass/websocket
 
 RUN echo $SVN_USERNAME
 
