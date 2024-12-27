@@ -8,3 +8,4 @@ include:
 
 stages:
   - build
+  - deploy
