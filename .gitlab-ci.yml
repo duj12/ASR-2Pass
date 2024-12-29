@@ -3,7 +3,7 @@ variables:
   IMAGE_NAMES: 'asr-2pass'
 
 include:
-  - project: 'devops1/gitlab-ci'
+  - project: 'devops1/gitlab-ci-test'
     file: 'templates/backend-ci-template.yml'
 
 stages:
