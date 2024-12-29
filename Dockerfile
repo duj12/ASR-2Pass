@@ -12,10 +12,12 @@ COPY . /opt/asr-2pass
 # 切换到 websocket 目录
 WORKDIR /opt/asr-2pass/websocket
 
-RUN echo $SVN_USERNAME
-
 # 使用 SVN 获取模型
-RUN svn checkout --username $SVN_USERNAME --password $SVN_PASSWORD svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models
+RUN --mount=type=secret,id=SVN_USERNAME \
+    --mount=type=secret,id=SVN_PASSWORD \
+    SECRET1=$(cat /run/secrets/SVN_USERNAME) && \
+    SECRET2=$(cat /run/secrets/SVN_PASSWORD) && \
+    svn checkout --username $SVN_USERNAME --password $SVN_PASSWORD svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models
 
 # 启动中文流式服务
 RUN nohup bash ./run_server_2pass.sh --port 10096 > asr.log 2>&1 &
