@@ -34,10 +34,10 @@ build_image:
     - |
       if [ -d "$SVN_LOCAL_PATH/.svn" ]; then
         echo "SVN working copy exists. Updating..."
-        svn update "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
+        svn update "$SVN_LOCAL_PATH" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
       else
         echo "No SVN working copy found. Checking out..."
-        svn checkout "$SVN_REPO_URL" "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
+        svn checkout "$SVN_REPO_URL" "$SVN_LOCAL_PATH" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
       fi
     - echo "Building image with tag $IMAGE_TAG"
     - cat Dockerfile
