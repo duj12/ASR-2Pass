@@ -1,0 +1,60 @@
+variables:
+  CD_CHART_REPOS: 'asr-2pass'
+  IMAGE_NAMES: 'asr-2pass'
+
+include:
+  - project: 'devops1/gitlab-ci'
+    file: 'common-variables.yml'
+  - project: 'devops1/gitlab-ci'
+    file: 'before-script.yml'
+  - project: 'devops1/gitlab-ci'
+    file: 'send-feishu-msg.yml'
+  - project: 'devops1/gitlab-ci'
+    file: 'update-helm.yml'
+  - project: 'devops1/gitlab-ci'
+    file: 'upload-chart.yml'
+
+stages:
+  - build
+  - deploy
+
+build_image:
+  stage: build
+  only:
+    - master
+    - qa
+  resource_group: $CI_PROJECT_NAME
+  script:
+    # Docker Build && Push image
+    - echo "Building image with tag $IMAGE_TAG"
+    - rm -rf ./models
+    - svn checkout --username $SVN_USERNAME --password $SVN_PASSWORD svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models 
+    - cat Dockerfile
+    - |
+      for IMAGE_NAME in "${IMAGE_NAME_ARRAY[@]}"; do
+        echo "build and push $IMAGE_NAME"
+        docker build -t $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
+        docker push $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+        if [[ $CI_COMMIT_REF_NAME == $CI_COMMIT_BRANCH ]]; then
+          if [[ "$CI_COMMIT_REF_NAME" == "master" || "$CI_COMMIT_REF_NAME" == "pre" || "$CI_COMMIT_REF_NAME" == *"_private"* || "$CI_COMMIT_REF_NAME" = "alpha" ]]; then
+            REGISTRY=$PRO_REGISTRY
+          else
+            REGISTRY=$DEV_REGISTRY
+          fi
+
+          if [[ $CI_COMMIT_REF_NAME == "master" ]]; then
+            docker tag $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA $REGISTRY/$IMAGE_NAME:latest
+            docker push $REGISTRY/$IMAGE_NAME:latest
+          fi
+          docker tag $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA $REGISTRY/$IMAGE_NAME:$CI_COMMIT_REF_NAME
+          docker push $REGISTRY/$IMAGE_NAME:$CI_COMMIT_REF_NAME
+          docker tag $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+          docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
+        else
+          docker tag $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA $PRO_REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG
+          docker push $PRO_REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG
+        fi
+      done
+  extends: .send-feishu-build-msg
+  tags:
+    - xmov-local-ut

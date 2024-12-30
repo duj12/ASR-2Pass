@@ -344,6 +344,8 @@ def compute_wer_line(label_text, recog_text, tochar=True, verbose=0):
         upper_lab = len(result['lab'])
         upper_rec = len(result['rec'])
         lab1, rec1 = 0, 0
+        lab_str = ""
+        rec_str = ""
         while lab1 < upper_lab or rec1 < upper_rec:
             if verbose > 1:
                 print('lab:', end=' ')
@@ -352,11 +354,11 @@ def compute_wer_line(label_text, recog_text, tochar=True, verbose=0):
             lab2 = min(upper_lab, lab1 + max_words_per_line)
             for idx in range(lab1, lab2):
                 token = result['lab'][idx]
-                print('{token}'.format(token=token), end='')
+                lab_str += '{token}'.format(token=token)
                 for n in range(space['lab'][idx]):
-                    print(padding_symbol, end='')
-                print(' ', end='')
-            print()
+                    lab_str += padding_symbol
+                lab_str += ' '
+            print(lab_str)
             if verbose > 1:
                 print('rec:', end=' ')
             else:
@@ -364,11 +366,11 @@ def compute_wer_line(label_text, recog_text, tochar=True, verbose=0):
             rec2 = min(upper_rec, rec1 + max_words_per_line)
             for idx in range(rec1, rec2):
                 token = result['rec'][idx]
-                print('{token}'.format(token=token), end='')
+                rec_str += '{token}'.format(token=token)
                 for n in range(space['rec'][idx]):
-                    print(padding_symbol, end='')
-                print(' ', end='')
-            print('\n', end='\n')
+                    rec_str += padding_symbol
+                rec_str += ' '
+            print(rec_str)
             lab1 = lab2
             rec1 = rec2
 
@@ -388,12 +390,16 @@ def compute_wer_line(label_text, recog_text, tochar=True, verbose=0):
                result['ins']))
 
     return_result = {
-        'wer': wer/100.0,
-        'all': result['all'],
-        'cor': result['cor'],
-        'sub': result['sub'],
-        'del': result['del'],
-        'ins': result['ins'],
+        'stats': {
+            'wer': wer/100.0,
+            'all': result['all'],
+            'cor': result['cor'],
+            'sub': result['sub'],
+            'del': result['del'],
+            'ins': result['ins'],
+        },
+        'lab': lab_str,
+        'rec': rec_str
     }
 
     if verbose:
