@@ -32,7 +32,7 @@ build_image:
   script:
     # Docker Build && Push image
     - |
-      if [ -d "$WORK_DIR/.svn" ]; then
+      if [ -d "$SVN_LOCAL_PATH/.svn" ]; then
         echo "SVN working copy exists. Updating..."
         svn update "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
       else
