@@ -31,6 +31,14 @@ build_image:
   resource_group: $CI_PROJECT_NAME
   script:
     # Docker Build && Push image
+    - |
+      if [ -d "$WORK_DIR/.svn" ]; then
+        echo "SVN working copy exists. Updating..."
+        svn update "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
+      else
+        echo "No SVN working copy found. Checking out..."
+        svn checkout "$SVN_REPO_URL" "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
+      fi
     - echo "Building image with tag $IMAGE_TAG"
     - cat Dockerfile
     - |
