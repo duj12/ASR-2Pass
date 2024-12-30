@@ -1,5 +1,3 @@
-ARG SVN_LOCAL_PATH
-
 # 使用 ubuntu 作为基础镜像
 FROM ubuntu:22.04
 
