@@ -12,6 +12,8 @@ COPY . /opt/asr-2pass
 # 切换到 websocket 目录
 WORKDIR /opt/asr-2pass/websocket
 
+RUN touch asr.log
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 CMD bash -c "\
