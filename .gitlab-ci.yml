@@ -1,6 +1,9 @@
 variables:
   CD_CHART_REPOS: 'asr-2pass'
   IMAGE_NAMES: 'asr-2pass'
+  SVN_REPO_URL: 'svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models'
+  SVN_LOCAL_PATH: '/data/nas/xmov_app/asr-2pass/svn/models'
+
 
 include:
   - project: 'devops1/gitlab-ci'
@@ -15,8 +18,22 @@ include:
     file: 'upload-chart.yml'
 
 stages:
+  - svn-update
   - build
   - deploy
+
+svn:
+  stage: svn_update
+  script:
+    - echo "Updating SVN repo from $SVN_REPO_URL to $SVN_LOCAL_PATH"
+    - |
+      if [ -d "$WORK_DIR/.svn" ]; then
+        echo "SVN working copy exists. Updating..."
+        svn update "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
+      else
+        echo "No SVN working copy found. Checking out..."
+        svn checkout "$SVN_REPO_URL" "$WORK_DIR" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
+      fi
 
 build_image:
   stage: build
@@ -27,8 +44,6 @@ build_image:
   script:
     # Docker Build && Push image
     - echo "Building image with tag $IMAGE_TAG"
-    - rm -rf ./models
-    - svn checkout --username $SVN_USERNAME --password $SVN_PASSWORD svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models 
     - cat Dockerfile
     - |
       for IMAGE_NAME in "${IMAGE_NAME_ARRAY[@]}"; do
