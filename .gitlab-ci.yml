@@ -40,6 +40,7 @@ build_image:
         svn checkout "$SVN_REPO_URL" "$SVN_LOCAL_PATH" --username "$SVN_USERNAME" --password "$SVN_PASSWORD"
       fi
     - echo "Building image with tag $IMAGE_TAG"
+    - svn export $SVN_LOCAL_PATH ./websocket/models
     - cat Dockerfile
     - |
       for IMAGE_NAME in "${IMAGE_NAME_ARRAY[@]}"; do
