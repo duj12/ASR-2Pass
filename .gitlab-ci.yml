@@ -48,7 +48,7 @@ build_image:
     - |
       for IMAGE_NAME in "${IMAGE_NAME_ARRAY[@]}"; do
         echo "build and push $IMAGE_NAME"
-        docker build -t $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
+        docker build --build-arg SVN_LOCAL_PATH=$SVN_LOCAL_PATH -t $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
         docker push $DEV_REGISTRY/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
         if [[ $CI_COMMIT_REF_NAME == $CI_COMMIT_BRANCH ]]; then
           if [[ "$CI_COMMIT_REF_NAME" == "master" || "$CI_COMMIT_REF_NAME" == "pre" || "$CI_COMMIT_REF_NAME" == *"_private"* || "$CI_COMMIT_REF_NAME" = "alpha" ]]; then
