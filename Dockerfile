@@ -17,7 +17,11 @@ RUN touch asr.log
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 CMD bash -c "\
+  bash ./run_build.sh && \
   nohup bash ./run_server_2pass.sh --port 10096 > asr.log 2>&1 & \
+  sleep 1 && \
   nohup bash ./run_server_offline.sh --port 10097 > asr_zh.log 2>&1 & \
+  sleep 1 && \
   nohup bash ./run_server_offline_en.sh --port 10098 > asr_en.log 2>&1 & \
   tail -f asr.log"
+
