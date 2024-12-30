@@ -16,7 +16,7 @@ WORKDIR /opt/asr-2pass/websocket
 RUN --mount=type=secret,id=svn_username \
     --mount=type=secret,id=svn_password \
     SVN_USERNAME=$(cat /run/secrets/svn_username) && \
-    SVN_PASSWORD=$(cat /run/secrets/svn_pasword) && \
+    SVN_PASSWORD=$(cat /run/secrets/svn_password) && \
     svn checkout --username $SVN_USERNAME --password $SVN_PASSWORD svn://svn-local.xmov.ai/repository/AlgModels/ASR/latest/models
 
 # 启动中文流式服务
