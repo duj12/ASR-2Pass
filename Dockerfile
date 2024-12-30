@@ -11,8 +11,6 @@ RUN mkdir -p /opt/asr-2pass
 
 COPY . /opt/asr-2pass
 
-COPY $SVN_LOCAL_PATH /opt/asr-2pass/websocket/
-
 # 切换到 websocket 目录
 WORKDIR /opt/asr-2pass/websocket
 
