@@ -23,7 +23,7 @@ stages:
   - deploy
 
 svn:
-  stage: svn_update
+  stage: svn-update
   script:
     - echo "Updating SVN repo from $SVN_REPO_URL to $SVN_LOCAL_PATH"
     - |
