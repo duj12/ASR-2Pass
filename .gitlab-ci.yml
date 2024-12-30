@@ -18,7 +18,6 @@ include:
     file: 'upload-chart.yml'
 
 stages:
-  - svn-update
   - build
   - deploy
 
