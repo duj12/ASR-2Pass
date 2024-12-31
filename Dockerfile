@@ -1,12 +1,13 @@
 # 基础镜像
 FROM ubuntu:22.04
 
-# 更新 apt 并安装必要的包
 RUN apt-get update && \
     apt-get install -y \
         git \
         subversion \
-        supervisor 
+        supervisor \
+        netcat-openbsd \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 创建目录
 RUN mkdir -p /opt/asr-2pass
