@@ -12,7 +12,7 @@ COPY . /opt/asr-2pass
 # 切换到 websocket 目录
 WORKDIR /opt/asr-2pass/websocket
 
-RUN touch asr.log
+RUN touch asr.log asr_zh.log asr_en.log
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
