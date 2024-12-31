@@ -42,8 +42,8 @@ build_image:
     - echo "Building image with tag $IMAGE_TAG"
     - svn export $SVN_LOCAL_PATH ./websocket/models
     - echo "Running build scripts..."
-    - bash ./run_build.sh
-    - cat Dockerfile
+    - cd websocket && bash ./run_build.sh
+    - cd .. && cat Dockerfile
     - |
       for IMAGE_NAME in "${IMAGE_NAME_ARRAY[@]}"; do
         echo "build and push $IMAGE_NAME"
