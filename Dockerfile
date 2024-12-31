@@ -18,8 +18,8 @@ COPY . /opt/asr-2pass
 # 切换工作目录
 WORKDIR /opt/asr-2pass/websocket
 
-# （可选）如果需要提前编译，可在这里添加编译命令
-# RUN bash ./run_build.sh
+# 提前编译
+RUN bash ./run_build.sh
 
 # 为日志文件预先创建目录或文件
 RUN touch asr.log asr_zh.log asr_en.log
