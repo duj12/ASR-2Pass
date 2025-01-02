@@ -21,9 +21,6 @@ WORKDIR /opt/asr-2pass/websocket
 # 提前编译
 RUN bash ./run_build.sh
 
-# 为日志文件预先创建目录或文件
-RUN touch asr.log asr_zh.log asr_en.log
-
 # 拷贝 supervisor 配置文件到系统目录
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
