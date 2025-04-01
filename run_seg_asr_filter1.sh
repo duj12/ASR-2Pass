@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+export LD_LIBRARY_PATH='/home/dujing/miniconda3/envs/dj_py310/lib/python3.10/site-packages/nvidia/cudnn/lib/'
+
+echo $LD_LIBRARY_PATH
 
 gpu_ids=0,1,2,3,4,5,6,7
 support_language="zh en"  # the language support for now.

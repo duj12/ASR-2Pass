@@ -141,16 +141,8 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
       perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/utt2spk > ${filter_dir}/spk2utt
     fi
 
-    # 对文本筛完的数据，计算speechMOS值
-    python utils/run_speechMOS.py -i $filter_dir/wav.scp -o $filter_dir/utt2mos -g $gpuid_list -n 2
-    mkdir -p $filter_dir/mos3
-    awk '{if($2>=3) print $0}' $filter_dir/utt2mos > $filter_dir/mos3/utt2mos
-    for file_name in wav.scp text utt2spk wav2dur utt2wer utt2delins ; do
-      perl utils/filter_scp.pl  ${filter_dir}/mos3/utt2mos ${filter_dir}/$file_name > ${filter_dir}/mos3/$file_name
-    done
-    perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/mos3/utt2spk > ${filter_dir}/mos3/spk2utt
+    # 对文本添加标点
+    python utils/run_add_punc.py -i $filter_dir/text -o $filter_dir/text_punc -g $gpuid_list -n 6
 
-    mos3_dur=`cat ${filter_dir}/mos3/wav2dur | awk -v total=0.0 '{total+=$2 } END{print total/3600}'`
-    echo "Total duration $dur_ori hours, WER<=5% duration $dur hours. MOS>=3.0 duration $mos3_dur hours."
 
 fi

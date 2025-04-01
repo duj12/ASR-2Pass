@@ -24,10 +24,8 @@ logger.addHandler(console_handler)
 # file_handler.setFormatter(formatter)
 # logger.addHandler(file_handler)
 
-# global
-timestamp_shift = 0   # 单位ms 经验值，片段结尾时间需要减去此值
-segment_min_second = 10  # 最后保存的音频最短长度s。
 target_sample_rate = 24000
+segment_format = 'flac'
 
 def get_file_duration(file_path):
     ffprobe_cmd = f'ffprobe -v error -show_entries ' \
@@ -68,25 +66,22 @@ def process_scp(args, start_idx, chunk_num):
             logger.warning(f"wav path: {wav} not exist.")
             continue
 
-        spker_id = os.path.splitext(utt)[0]
-        transcription = f"{transcript_path}/{spker_id}.tsv"
+        try:
+            # 读取长音频
+            audio = AudioSegment.from_file(wav)
+        except Exception as e:
+            logger.error(f"Loading wav error, {e}")
+            continue
+        else:
+            audio = audio.set_frame_rate(target_sample_rate)
+            current_duration = float(get_file_duration(wav))
+            total_duration += current_duration
+
+        utt_name = os.path.splitext(utt)[0]   # 文件名作为ID
+        transcription = f"{transcript_path}/{utt_name}.tsv"
         if not os.path.exists(transcription):
             logging.warning(f"{transcription} not exist, continue.")
             continue
-
-        # 保存路径
-        spker_dir = f"{segment_save_path}/{spker_id}"
-        # 处理可能存在.号导致的文件夹创建失败。
-        spker_dir = spker_dir.replace(".", "-", -1)
-        if not os.path.exists(spker_dir):
-            os.makedirs(spker_dir, exist_ok=True)
-        text_file_path = f"{spker_dir}/transcription.txt"
-        if os.path.exists(text_file_path):
-            logging.warning(f"{text_file_path} already exists, pass.")
-            continue  # 已经切分过，跳过。
-            # pass
-
-        fout = open(text_file_path, 'w', encoding='utf-8')
 
         # 读取 tsv 文件
         with open(transcription) as tsv_file:
@@ -97,79 +92,64 @@ def process_scp(args, start_idx, chunk_num):
             if len(data) == 0:
                 logger.warning(
                     f"wav_path:{wav}, transcription:"
-                    f"{spker_id}.tsv is empty, continue.")
+                    f"{utt_name}.tsv is empty, continue.")
                 continue
 
-        try:
-            # 读取长音频
-            audio = AudioSegment.from_file(wav)
-            audio = audio.set_frame_rate(target_sample_rate)
-            current_duration = float(get_file_duration(wav))
-            total_duration += current_duration
+        speaker_diarization = {}
+        for line in data:
+            line = line.strip().split("\t")
+            if len(line) != 4:
+                continue
+            start, end, text, spk = line[0], line[1], line[2], line[3]
+            if spk not in speaker_diarization:
+                speaker_diarization[spk] = []
+            speaker_diarization[spk].append([start,end,text])
 
-            # 初始化当前音频片段的起始时间和标记
-            start_time = None
-            segment_end_time = 0.0
-            current_segment_text = ""
-            segment_idx = 0
-            for i, line in enumerate(data):
-                paragraph = line.strip().split('\t')
-                if len(paragraph) != 3:  # 没有转写内容
-                    logger.warning(
-                        f"transcription:{spker_id}.tsv "
-                        f"format is not 'start\tend\ttext', check it.")
-                    continue
-                segment_start_time = float(paragraph[0])
-                if start_time == None:  # 设置第一段时间起始点
-                    start_time = segment_start_time
-                segment_end_time = float(paragraph[1]) - timestamp_shift
-                text = paragraph[2]
-                current_segment_text += text + " "
+        for speaker in speaker_diarization.keys():
+            try:
+                # 保存路径, 以文件名-说话人序号，作为说话人ID
+                spker_id = f"{utt_name}-{speaker}"
+                spker_dir = f"{segment_save_path}/{spker_id}"
+                # 处理可能存在.号导致的文件夹创建失败。
+                spker_dir = spker_dir.replace(".", "-", -1)
+                if not os.path.exists(spker_dir):
+                    os.makedirs(spker_dir, exist_ok=True)
+                text_file_path = f"{spker_dir}/transcription.txt"
+                if os.path.exists(text_file_path):
+                    logging.warning(f"{text_file_path} already exists, pass.")
+                    continue  # 已经切分过，跳过。
+                    # pass
 
-                if segment_end_time - start_time >= segment_min_second * 1000 \
-                        and start_time < segment_end_time \
-                        and start_time / 1000.0 < current_duration:
-                    segments_duration += (segment_end_time-start_time) / 1000.0
+                fout = open(text_file_path, 'w', encoding='utf-8')
+                segment_idx = 0
+                data = speaker_diarization[speaker]
+                for i, paragraph in enumerate(data):
+                    if len(paragraph) < 3:  # 没有转写内容
+                        logger.warning(
+                            f"transcription:{utt_name}.tsv "
+                            f"format is not 'start\tend\ttext', check it.")
+                        continue
+                    segment_start_time = float(paragraph[0])
+                    segment_end_time = float(paragraph[1])
+                    segment_text = paragraph[2]
+
+                    segments_duration += (segment_end_time-segment_start_time) / 1000.0
                     new_uttid = f"{spker_id}_{segment_idx:04d}"
-                    segment_filename = f'{spker_dir}/{new_uttid}.wav'
-                    fout.write(f"{new_uttid}\t{current_segment_text}\n")
+                    segment_filename = f'{spker_dir}/{new_uttid}.{segment_format}'
+                    fout.write(f"{new_uttid}\t{segment_text}\n")
                     fout.flush()
-                    # segment_and_convert(
-                    #     wav, segment_filename,
-                    #     start_time/1000.0, segment_end_time/1000.0)
-                    audio_segment = audio[start_time:segment_end_time]
-                    audio_segment.export(segment_filename, format='wav')
-
-                    start_time = segment_end_time  # 更新起始时间为当前句末尾
-                    current_segment_text = ""  # 清空累计文本
                     segment_idx += 1
+                    audio_segment = audio[segment_start_time:segment_end_time]
+                    audio_segment.export(segment_filename, format=segment_format)
 
-            # 保存最后一个音频片段，因为总段数不是5的倍数，因此最后一段还没被保存
-            if current_segment_text != "" and start_time is not None \
-                    and start_time < segment_end_time \
-                    and start_time / 1000.0 < current_duration:
-                segments_duration += (segment_end_time - start_time) / 1000.0
-                new_uttid = f"{spker_id}_{segment_idx:04d}"
-                segment_filename = f'{spker_dir}/{new_uttid}.wav'
-                fout.write(f"{new_uttid}\t{current_segment_text}\n")
-                fout.flush()
-                # segment_and_convert(
-                #     wav, segment_filename,
-                #     start_time / 1000.0, segment_end_time / 1000.0)
-                audio_segment = audio[start_time:segment_end_time]
-                audio_segment.export(segment_filename, format='wav')
+                fout.close()
 
-                start_time = segment_end_time  # 更新起始时间为当前句末尾
-                current_segment_text = ""  # 清空累计文本
-                segment_idx += 1
+            except Exception as e:
+                logger.error(f"Audio Segment Error: {e}")
+                continue
+            else:
+                pass
 
-        except Exception as e:
-            logger.error(f"Audio Segment Error: {e}")
-            continue
-        else:
-            pass
-
-        fout.close()
     f_scp.close()
     logger.info(f"Total long audio {total_duration} seconds; "
                 f"Total segments {segments_duration} seconds.")

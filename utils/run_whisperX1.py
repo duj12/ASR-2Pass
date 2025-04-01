@@ -8,12 +8,13 @@ import logging
 import argparse
 from tqdm import tqdm
 from multiprocessing import Process
+from dataclasses import replace
 from whisperx.utils import get_writer
 import whisperx
 
 
 torch.set_num_threads(4)
-
+HF_TOKEN = os.environ.get('HF_TOKEN', None)
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 current_path = os.environ.get('PATH', '')
 ffmpeg_path = '/home/dujing/ffmpeg-6.0/bin'
@@ -37,12 +38,24 @@ logger.addHandler(console_handler)
 # file_handler.setLevel(logging.INFO)
 # file_handler.setFormatter(formatter)
 # logger.addHandler(file_handler)
-
+logger.info(f"HF_TOKEN: {HF_TOKEN}")
 # global
 useful_language = ['zh', 'en']
 output_format = "tsv"
 MAX_AUDIO_LENGTH = 15  # VAD merge后最长音频段，对应whisper解码最长一段的时长，目前看来好像最终whisper时间戳最长一段还是会接近30s.
+MIN_SPEAKERS = 1
+MAX_SPEAKERS = 4
 
+
+def write_result(result: dict, file):
+    print("start", "end", "text", "speaker", sep="\t", file=file)
+    for segment in result["segments"]:
+        if "speaker" not in segment:
+            continue
+        print(round(1000 * segment["start"]), file=file, end="\t")
+        print(round(1000 * segment["end"]), file=file, end="\t")
+        print(segment["text"].strip().replace("\t", " "), file=file, end="\t")
+        print(segment["speaker"].strip(), file=file, flush=True)
 
 def process_scp(args, gpu_id, start_idx, chunk_num):
     device = 'cuda'
@@ -54,12 +67,14 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
 
     model = whisperx.load_model(
         "large-v3", device, device_index=gpu_index,
-        compute_type=compute_type)
+        compute_type=compute_type,
+        asr_options={'initial_prompt': "后面的内容，都是普通话的文本。"})
+    logger.info(model.options)
 
-    writer = {}
+    # writer = {}
     for lang in useful_language:
         os.makedirs(f"{args.output_dir}/{lang}", exist_ok=True)
-        writer[lang] = get_writer(output_format, f"{args.output_dir}/{lang}")
+        # writer[lang] = get_writer(output_format, f"{args.output_dir}/{lang}")
 
     with open(args.wav_scp, 'r', encoding='utf-8') as fin:
         for i, line in enumerate(tqdm(fin)):
@@ -79,7 +94,7 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
             is_transcribed = False
             for lang in useful_language:
                 tsv_path = os.path.join(
-                    args.output_dir, lang, f"{tsv_name}.tsv")
+                    args.output_dir, lang, f"{tsv_name}.{output_format}")
                 if os.path.exists(tsv_path):
                     is_transcribed = True
                     logger.warning(f"tsv path: {tsv_path} exits, continue.")
@@ -91,28 +106,40 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                 audio = whisperx.load_audio(wav)
                 language = model.detect_language(audio)
                 logger.info(f"language of {wav} is: {language}")
+                if language not in useful_language:
+                    logger.warning(f"{language} not in useful_language {useful_language}, skip.")
+                    continue
+
                 # if language == 'zh':
                 #     prompt = '后面的内容，都是普通话的文本。'
                 # else:
                 #     prompt = ""
-                # asr_options = {
-                #     "initial_prompt": prompt,
-                # }
-
-                if language not in useful_language:
-                    logger.warning(f"{language} not in useful_language {useful_language}, skip.")
-                    continue
+                # model.options = replace(model.options, initial_prompt=prompt)  # 这个对象无法写入。。
 
                 result = model.transcribe(
                     audio, batch_size=args.batch_size,
                     language=language, chunk_size=MAX_AUDIO_LENGTH,)
 
-                # we save the transcript result with utt name
-                writer[language](result, utt, {})
+                # 3. Assign speaker labels
+                diarize_model = whisperx.DiarizationPipeline(
+                    use_auth_token=HF_TOKEN, device=device)
+
+                # add min/max number of speakers if known
+                diarize_segments = diarize_model(audio, min_speakers=MIN_SPEAKERS, max_speakers=MAX_SPEAKERS)
+                # print(diarize_segments)
+                result = whisperx.assign_word_speakers(diarize_segments, result)
 
             except Exception as e:
                 logger.error(f"Whisper Transcribe Error: {e}")
                 continue
+            else:
+                # we save the transcript result with utt name
+                # writer[language](result, utt, {})
+                result_path = f"{args.output_dir}/{language}/{tsv_name}.{output_format}"
+
+                # print(result["segments"])  # segments are now assigned speaker IDs
+                with open(result_path, 'w', encoding='utf-8') as fout:
+                    write_result(result, fout)
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
@@ -161,7 +188,7 @@ if __name__ == "__main__":
         # process i handle wavs at chunk_begin and size of now_chunk_size
         gpu_id = i % gpu_num
         p = Process(target=process_scp, args=(
-            args, gpu_id, chunk_begin, now_chunk_size))
+            args, gpu_list[gpu_id], chunk_begin, now_chunk_size))
         chunk_begin = chunk_begin + now_chunk_size
         p.start()
         process_list.append(p)
