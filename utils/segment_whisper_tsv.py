@@ -6,6 +6,7 @@ import argparse
 import logging
 import subprocess
 import json
+from io import BytesIO
 from tqdm import tqdm
 from multiprocessing import Process
 from pydub import AudioSegment
@@ -46,6 +47,20 @@ def segment_and_convert(
     subprocess.call(ffmpeg_cmd, shell=True)
     print(f"Segment and convert finished: {output_file}")
 
+def load_audio_file(file_path, format='wav'):  # 解决大文件读取
+    cmd = ['ffmpeg', '-i', f'{file_path}',
+                     '-vn', '-ac', '1',
+                     '-sample_fmt', 's16',
+                     '-ar', f'{target_sample_rate}',
+                     '-f', f'{format}', '-']
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    audio_data, _ = process.communicate()
+    audio_buffer = BytesIO(audio_data)  # 转换为可寻址的缓冲
+    audio = AudioSegment.from_file(audio_buffer, format=f"{format}", mmap=True)
+    return audio
+
+
 def process_scp(args, start_idx, chunk_num):
     total_duration = 0.0
     segments_duration = 0.0
@@ -65,17 +80,6 @@ def process_scp(args, start_idx, chunk_num):
         if not os.path.exists(wav):
             logger.warning(f"wav path: {wav} not exist.")
             continue
-
-        try:
-            # 读取长音频
-            audio = AudioSegment.from_file(wav)
-        except Exception as e:
-            logger.error(f"Loading wav error, {e}")
-            continue
-        else:
-            audio = audio.set_frame_rate(target_sample_rate)
-            current_duration = float(get_file_duration(wav))
-            total_duration += current_duration
 
         utt_name = os.path.splitext(utt)[0]   # 文件名作为ID
         transcription = f"{transcript_path}/{utt_name}.tsv"
@@ -104,6 +108,29 @@ def process_scp(args, start_idx, chunk_num):
             if spk not in speaker_diarization:
                 speaker_diarization[spk] = []
             speaker_diarization[spk].append([start,end,text])
+
+        for speaker in speaker_diarization.keys():
+            # 保存路径, 以文件名-说话人序号，作为说话人ID
+            spker_id = f"{utt_name}-{speaker}"
+            spker_dir = f"{segment_save_path}/{spker_id}"
+            # 处理可能存在.号导致的文件夹创建失败。
+            spker_dir = spker_dir.replace(".", "-", -1)
+            text_file_path = f"{spker_dir}/transcription.txt"
+            if os.path.exists(text_file_path):
+                logging.warning(f"{text_file_path} already exists, pass.")
+                continue  # 已经切分过，跳过。
+
+        try:
+            # 读取长音频
+            # audio = AudioSegment.from_file(wav)
+            audio = load_audio_file(wav)
+        except Exception as e:
+            logger.error(f"Loading wav {wav} error, {e}")
+            continue
+        else:
+            # audio = audio.set_frame_rate(target_sample_rate)
+            current_duration = float(get_file_duration(wav))
+            total_duration += current_duration
 
         for speaker in speaker_diarization.keys():
             try:
@@ -140,7 +167,8 @@ def process_scp(args, start_idx, chunk_num):
                     fout.flush()
                     segment_idx += 1
                     audio_segment = audio[segment_start_time:segment_end_time]
-                    audio_segment.export(segment_filename, format=segment_format)
+                    audio_segment.export(segment_filename, format=segment_format,
+                                         parameters=["-ar", f"{target_sample_rate}", "-ac", "1"])
 
                 fout.close()
 
@@ -149,6 +177,8 @@ def process_scp(args, start_idx, chunk_num):
                 continue
             else:
                 pass
+
+        del audio
 
     f_scp.close()
     logger.info(f"Total long audio {total_duration} seconds; "

@@ -104,8 +104,11 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
 
             try:
                 audio = whisperx.load_audio(wav)
-                language = model.detect_language(audio)
-                logger.info(f"language of {wav} is: {language}")
+                if args.language is not None:
+                    language = args.language
+                else:
+                    language = model.detect_language(audio)
+                    logger.info(f"language of {wav} is: {language}")
                 if language not in useful_language:
                     logger.warning(f"{language} not in useful_language {useful_language}, skip.")
                     continue
