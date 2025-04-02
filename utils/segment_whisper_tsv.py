@@ -109,6 +109,7 @@ def process_scp(args, start_idx, chunk_num):
                 speaker_diarization[spk] = []
             speaker_diarization[spk].append([start,end,text])
 
+        utt_is_segmented = True
         for speaker in speaker_diarization.keys():
             # 保存路径, 以文件名-说话人序号，作为说话人ID
             spker_id = f"{utt_name}-{speaker}"
@@ -116,9 +117,11 @@ def process_scp(args, start_idx, chunk_num):
             # 处理可能存在.号导致的文件夹创建失败。
             spker_dir = spker_dir.replace(".", "-", -1)
             text_file_path = f"{spker_dir}/transcription.txt"
-            if os.path.exists(text_file_path):
-                logging.warning(f"{text_file_path} already exists, pass.")
-                continue  # 已经切分过，跳过。
+            if not os.path.exists(text_file_path):
+                utt_is_segmented = False
+        if utt_is_segmented:
+            logger.warning(f"{utt_name} is segmented, pass.")
+            continue
 
         try:
             # 读取长音频
