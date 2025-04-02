@@ -141,8 +141,8 @@ if [ $stage -le 3 ] && [ $stop_stage -ge 3 ];then
       perl utils/utt2spk_to_spk2utt.pl ${filter_dir}/utt2spk > ${filter_dir}/spk2utt
     fi
 
-    # 对文本添加标点
-    python utils/run_add_punc.py -i $filter_dir/text -o $filter_dir/text_punc -g $gpuid_list -n 6
+#    # 对文本添加标点
+#    python utils/run_add_punc.py -i $filter_dir/text -o $filter_dir/text_punc -g $gpuid_list -n 6
 
 
 fi

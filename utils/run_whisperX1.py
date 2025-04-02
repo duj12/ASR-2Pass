@@ -6,6 +6,7 @@ import os
 import torch
 import logging
 import argparse
+import zhconv
 from tqdm import tqdm
 from multiprocessing import Process
 from dataclasses import replace
@@ -54,7 +55,9 @@ def write_result(result: dict, file):
             continue
         print(round(1000 * segment["start"]), file=file, end="\t")
         print(round(1000 * segment["end"]), file=file, end="\t")
-        print(segment["text"].strip().replace("\t", " "), file=file, end="\t")
+        text = segment["text"].strip().replace("\t", " ")
+        text = zhconv.convert(text, 'zh-cn')
+        print(text, file=file, end="\t")
         print(segment["speaker"].strip(), file=file, flush=True)
 
 def process_scp(args, gpu_id, start_idx, chunk_num):
@@ -68,7 +71,7 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
     model = whisperx.load_model(
         "large-v3", device, device_index=gpu_index,
         compute_type=compute_type,
-        asr_options={'initial_prompt': "后面的内容，都是普通话的文本。"})
+        asr_options={'initial_prompt': ""})
     logger.info(model.options)
 
     # writer = {}

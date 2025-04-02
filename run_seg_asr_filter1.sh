@@ -78,12 +78,12 @@ if [ $stage -le 3 ] && [ ${stop_stage} -ge 3 ]; then
   for lang in $support_language; do
     mkdir -p $data_dir/$lang
     echo "# 第3步，准备转写所需的kaldi格式数据，至少包含wav.scp和text，过滤掉[0.5, 40]s之外的音频段"
-    find  $segment_dir/$lang  -type f  -name "*.wav" | awk -F"/"  -v name="" \
-       '{name=$NF; gsub(".wav","",name); print name"\t"$0 }' | sort > $data_dir/$lang/wav.scp
+    find  $segment_dir/$lang  -type f  -name "*.flac" | awk -F"/"  -v name="" \
+       '{name=$NF; gsub(".flac","",name); print name"\t"$0 }' | sort > $data_dir/$lang/wav.scp
     # cat  $segment_dir/*/transcription.txt | sort > $data_dir/$lang/text
     find $segment_dir/$lang -name "transcription.txt" -print0 | xargs -0 cat > $data_dir/$lang/text
-    find  $segment_dir/$lang  -type f  -name "*.wav" | awk -F"/"  -v name="" \
-       '{name=$NF; gsub(".wav","",name); print name"\t"$(NF-1) }' | sort > $data_dir/$lang/utt2spk
+    find  $segment_dir/$lang  -type f  -name "*.flac" | awk -F"/"  -v name="" \
+       '{name=$NF; gsub(".flac","",name); print name"\t"$(NF-1) }' | sort > $data_dir/$lang/utt2spk
     bash $ROOT/utils/wav_to_duration.sh --nj 48 $data_dir/$lang/wav.scp  $data_dir/$lang/wav2dur
 
     mkdir -p $data_dir/$lang/backup
