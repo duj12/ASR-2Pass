@@ -6,6 +6,7 @@ import argparse
 import logging
 import subprocess
 import json
+import init_logger
 from io import BytesIO
 from tqdm import tqdm
 from multiprocessing import Process
@@ -13,17 +14,6 @@ from pydub import AudioSegment
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(formatter)
-logger.addHandler(console_handler)
-# file_handler = logging.FileHandler('app.log')
-# file_handler.setLevel(logging.INFO)
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
 
 target_sample_rate = 24000
 segment_format = 'flac'
