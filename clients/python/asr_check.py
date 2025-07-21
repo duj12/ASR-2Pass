@@ -1,3 +1,4 @@
+import re
 import asyncio
 from ASR_client_api import ASR_Client, parse_args
 from compute_wer_line import compute_wer_line
@@ -9,19 +10,35 @@ logger = logging.getLogger(__name__)
 def determine_lang(text):
     """
     :param text:
-    :return: zh表示中文，en表示中英文混合(英文字符比例超过0.5)、纯英文
+    :return: zh表示中文，en表示英文(英文字符比例超过0.99)
     """
+    
+    # 去除所有中英文标点符号
+    text_no_punct = re.sub(r'[^\w\s\u4e00-\u9fff]', '', text)
+
+    # 中文字符范围：\u4e00-\u9fff
+    chinese_chars = re.findall(r'[\u4e00-\u9fff]', text_no_punct)
+    num_chinese_chars = len(chinese_chars)
+
+    # 英文单词（连续的英文字母） 
+    english_words = re.findall(r'\b[a-zA-Z]+\b', text_no_punct)
+    num_english_words = len(english_words)
+
     text = str(text)
     total = len(text)
     if total == 0:
         return 'zh'
 
-    en_count = sum(1 for c in text if ord(c) < 128)
-
-    if en_count / total > 0.5:
-        return 'en'
-    else:
+    # en_count = sum(1 for c in text if ord(c) < 128)
+    # if en_count / total > 0.99:
+    #     return 'en'
+    # else:
+    #     return 'zh'
+    if num_chinese_chars != 0:
         return 'zh'
+    else:
+        return 'en'
+    
 
 async def asr_main(asr_args, client, audio_in):
     await client.connect()
