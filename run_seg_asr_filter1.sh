@@ -8,6 +8,7 @@ support_language="zh en"  # the language support for now.
 other_format=flv
 stage=0
 stop_stage=4
+speakers=3
 
 . ./utils/parse_options.sh  ||  exit 1;
 
@@ -40,12 +41,12 @@ fi
 if [ $stage -le 0 ] && [ ${stop_stage} -ge 0 ]; then
   echo "# 第0.0步, 将转写文件调整格式列到wav.scp文件中"
   find  $audio_dir  -type f  | awk -F"/"  -v name="" \
-    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' > $output_dir/wav.scp
+    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name); print name"\t"$0 }' | shuf > $output_dir/wav.scp
 #  echo "# 第0.1步, 去除音频路径中带有的空格，将空格替换成-, 文件名限定在15个字以内"
 #  python3 $ROOT/clients/audio/rm_space_in_path.py $output_dir/wav.scp
 #  echo "# 第0.2步, 重新把全部转写文件路径列入到wav.scp中"
 #  find  $audio_dir  -type f | awk -F"/" -v name="" \
-#    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' > $output_dir/wav.scp
+#    -v root=$audio_dir '{name=$0; gsub(root,"",name); gsub("/","_",name);  print name"\t"$0 }' | shuf > $output_dir/wav.scp
 
 fi
 
@@ -57,6 +58,7 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
       -i  $output_dir/wav.scp \
       -o  $result_dir \
       -g  $gpu_ids  \
+      -s  $speakers \
       -b  32
 
 fi

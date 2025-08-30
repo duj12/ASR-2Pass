@@ -24,7 +24,7 @@ useful_language = ['zh', 'en']
 output_format = "tsv"
 MAX_AUDIO_LENGTH = 15  # VAD merge后最长音频段，对应whisper解码最长一段的时长，目前看来好像最终whisper时间戳最长一段还是会接近30s.
 MIN_SPEAKERS = 1
-MAX_SPEAKERS = 4
+# MAX_SPEAKERS = 4
 
 
 def write_result(result: dict, file):
@@ -110,7 +110,7 @@ def process_scp(args, gpu_id, start_idx, chunk_num):
                     use_auth_token=HF_TOKEN, device=device)
 
                 # add min/max number of speakers if known
-                diarize_segments = diarize_model(audio, min_speakers=MIN_SPEAKERS, max_speakers=MAX_SPEAKERS)
+                diarize_segments = diarize_model(audio, min_speakers=MIN_SPEAKERS, max_speakers=args.speakers)
                 # print(diarize_segments)
                 result = whisperx.assign_word_speakers(diarize_segments, result)
 
@@ -134,6 +134,7 @@ if __name__ == "__main__":
                    default=None, help='path to save the generated audios.')
     p.add_argument('-g', '--gpu_ids', type=str, required=False, default='0')
     p.add_argument('-b', '--batch_size', type=int, required=False, default=4)
+    p.add_argument('-s', '--speakers', type=int, required=False, default=4)
     p.add_argument('-l', '--language', type=str, required=False, default=None)
 
     args = p.parse_args()
