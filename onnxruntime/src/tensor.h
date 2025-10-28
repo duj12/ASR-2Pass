@@ -2,7 +2,9 @@
 #define TENSOR_H
 
 #include "alignedmem.h"
-
+#include "stdio.h"
+#include <iostream>
+#include <cstring>
 using namespace std;
 
 namespace funasr {

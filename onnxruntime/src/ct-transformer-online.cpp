@@ -12,13 +12,13 @@ CTTransformerOnline::CTTransformerOnline()
     is_online = true;
 }
 
-void CTTransformerOnline::InitPunc(const std::string &punc_model, const std::string &punc_config, int thread_num){
+void CTTransformerOnline::InitPunc(const std::string &punc_model, const std::string &punc_config, const std::string &token_file, int thread_num){
     session_options.SetIntraOpNumThreads(thread_num);
     session_options.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
     session_options.DisableCpuMemArena();
 
     try{
-        m_session = std::make_unique<Ort::Session>(env_, punc_model.c_str(), session_options);
+        m_session = std::make_unique<Ort::Session>(env_, ORTSTRING(punc_model).c_str(), session_options);
         LOG(INFO) << "Successfully load model from " << punc_model;
     }
     catch (std::exception const &e) {
@@ -26,38 +26,29 @@ void CTTransformerOnline::InitPunc(const std::string &punc_model, const std::str
         exit(-1);
     }
     // read inputnames outputnames
-    string strName;
-    GetInputName(m_session.get(), strName);
-    m_strInputNames.push_back(strName.c_str());
-    GetInputName(m_session.get(), strName, 1);
-    m_strInputNames.push_back(strName);
-    GetInputName(m_session.get(), strName, 2);
-    m_strInputNames.push_back(strName);
-    GetInputName(m_session.get(), strName, 3);
-    m_strInputNames.push_back(strName);
-    
-    GetOutputName(m_session.get(), strName);
-    m_strOutputNames.push_back(strName);
+    GetInputNames(m_session.get(), m_strInputNames, m_szInputNames);
+    GetOutputNames(m_session.get(), m_strOutputNames, m_szOutputNames);
 
-    for (auto& item : m_strInputNames)
-        m_szInputNames.push_back(item.c_str());
-    for (auto& item : m_strOutputNames)
-        m_szOutputNames.push_back(item.c_str());
-
-	m_tokenizer.OpenYaml(punc_config.c_str());
+	m_tokenizer.OpenYaml(punc_config.c_str(), token_file.c_str());
+	m_tokenizer.JiebaInit(punc_config);
 }
 
 CTTransformerOnline::~CTTransformerOnline()
 {
 }
 
-string CTTransformerOnline::AddPunc(const char* sz_input, vector<string> &arr_cache)
+string CTTransformerOnline::AddPunc(const char* sz_input, vector<string> &arr_cache, std::string language)
 {
     string strResult;
     vector<string> strOut;
     vector<int> InputData;
     string strText; //full_text
     strText = accumulate(arr_cache.begin(), arr_cache.end(), strText);
+
+    // 如果上一句的结尾是英语字母，并且这一句的开始也是英语字母，应该添加空格
+    if ((strText.size() > 0 and !(strText[strText.size()-1] & 0x80)) && (strlen(sz_input) > 0 && !(sz_input[0] & 0x80)))
+        strText += " ";
+
     strText += sz_input;  // full_text = precache + text  
     m_tokenizer.Tokenize(strText.c_str(), strOut, InputData);
 
@@ -75,8 +66,8 @@ string CTTransformerOnline::AddPunc(const char* sz_input, vector<string> &arr_ca
     for (size_t i = 0; i < InputData.size(); i += TOKEN_LEN)
     {
         nDiff = (i + TOKEN_LEN) < InputData.size() ? (0) : (i + TOKEN_LEN - InputData.size());
-        vector<int32_t> InputIDs(InputData.begin() + i, InputData.begin() + i + TOKEN_LEN - nDiff);
-        vector<string> InputStr(strOut.begin() + i, strOut.begin() + i + TOKEN_LEN - nDiff);
+        vector<int32_t> InputIDs(InputData.begin() + i, InputData.begin() + i + (TOKEN_LEN - nDiff));
+        vector<string> InputStr(strOut.begin() + i, strOut.begin() + i + (TOKEN_LEN - nDiff));
         InputIDs.insert(InputIDs.begin(), RemainIDs.begin(), RemainIDs.end()); // RemainIDs+InputIDs;
         InputStr.insert(InputStr.begin(), RemainStr.begin(), RemainStr.end()); // RemainStr+InputStr;
 
@@ -103,10 +94,10 @@ string CTTransformerOnline::AddPunc(const char* sz_input, vector<string> &arr_ca
                 nSentEnd = nLastCommaIndex;
                 Punction[nSentEnd] = PERIOD_INDEX;
             }
-            RemainStr.assign(InputStr.begin() + nSentEnd + 1, InputStr.end());
-            RemainIDs.assign(InputIDs.begin() + nSentEnd + 1, InputIDs.end());
-            InputStr.assign(InputStr.begin(), InputStr.begin() + nSentEnd + 1);  // minit_sentence
-            Punction.assign(Punction.begin(), Punction.begin() + nSentEnd + 1);
+            RemainStr.assign(InputStr.begin() + (nSentEnd + 1), InputStr.end());
+            RemainIDs.assign(InputIDs.begin() + (nSentEnd + 1), InputIDs.end());
+            InputStr.assign(InputStr.begin(), InputStr.begin() + (nSentEnd + 1));  // minit_sentence
+            Punction.assign(Punction.begin(), Punction.begin() + (nSentEnd + 1));
         }
         
         for (auto& item : Punction)  
@@ -121,7 +112,7 @@ string CTTransformerOnline::AddPunc(const char* sz_input, vector<string> &arr_ca
     vector<string> WordWithPunc;
     for (int i = 0; i < sentence_words_list.size(); i++) // for i in range(0, len(sentence_words_list)):
     {
-        if (i > 0 && !(sentence_words_list[i][0] & 0x80) && (i + 1) < sentence_words_list.size() && !(sentence_words_list[i + 1][0] & 0x80))
+        if (!(sentence_words_list[i][0] & 0x80) && (i + 1) < sentence_words_list.size() && !(sentence_words_list[i + 1][0] & 0x80))
         {
             sentence_words_list[i] = sentence_words_list[i] + " ";
         }
@@ -150,7 +141,7 @@ string CTTransformerOnline::AddPunc(const char* sz_input, vector<string> &arr_ca
             break;
         }
     }
-    arr_cache.assign(sentence_words_list.begin() + nSentEnd + 1, sentence_words_list.end());
+    arr_cache.assign(sentence_words_list.begin() + (nSentEnd + 1), sentence_words_list.end());
 
     if (sentenceOut.size() > 0 && m_tokenizer.IsPunc(sentenceOut[sentenceOut.size() - 1]))
     {

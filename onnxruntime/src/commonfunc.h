@@ -1,29 +1,35 @@
 #pragma once 
 #include <algorithm>
+#ifdef _WIN32
+#include <codecvt>
+#endif
 
 namespace funasr {
 typedef struct
 {
-    std::string msg="";
-    std::string stamp="";
-    std::string tpass_msg="";
-    float snippet_time=0;
+    std::string msg;
+    std::string stamp;
+    std::string stamp_sents;
+    std::string tpass_msg;
+    float snippet_time;
 }FUNASR_RECOG_RESULT;
 
 typedef struct
 {
     std::vector<std::vector<int>>* segments;
-    float  snippet_time=0;
+    float  snippet_time;
 }FUNASR_VAD_RESULT;
 
 typedef struct
 {
-    string msg="";
+    string msg;
     vector<string> arr_cache;
 }FUNASR_PUNC_RESULT;
 
 #ifdef _WIN32
-#include <codecvt>
+
+#define ORTSTRING(str) StrToWstr(str)
+#define ORTCHAR(str) StrToWstr(str).c_str()
 
 inline std::wstring String2wstring(const std::string& str, const std::string& locale)
 {
@@ -39,7 +45,14 @@ inline std::wstring  StrToWstr(std::string str) {
 
 }
 
+#else
+
+#define ORTSTRING(str) str
+#define ORTCHAR(str) str
+
 #endif
+
+
 
 inline void GetInputName(Ort::Session* session, string& inputName,int nIndex=0) {
     size_t numInputNodes = session->GetInputCount();
@@ -52,6 +65,19 @@ inline void GetInputName(Ort::Session* session, string& inputName,int nIndex=0) 
     }
 }
 
+inline void GetInputNames(Ort::Session* session, std::vector<std::string> &m_strInputNames,
+                   std::vector<const char *> &m_szInputNames) {
+    Ort::AllocatorWithDefaultOptions allocator;
+    size_t numNodes = session->GetInputCount();
+    m_strInputNames.resize(numNodes);
+    m_szInputNames.resize(numNodes);
+    for (size_t i = 0; i != numNodes; ++i) {    
+        auto t = session->GetInputNameAllocated(i, allocator);
+        m_strInputNames[i] = t.get();
+        m_szInputNames[i] = m_strInputNames[i].c_str();
+    }
+}
+
 inline void GetOutputName(Ort::Session* session, string& outputName, int nIndex = 0) {
     size_t numOutputNodes = session->GetOutputCount();
     if (numOutputNodes > 0) {
@@ -60,6 +86,19 @@ inline void GetOutputName(Ort::Session* session, string& outputName, int nIndex 
             auto t = session->GetOutputNameAllocated(nIndex, allocator);
             outputName = t.get();
         }
+    }
+}
+
+inline void GetOutputNames(Ort::Session* session, std::vector<std::string> &m_strOutputNames,
+                   std::vector<const char *> &m_szOutputNames) {
+    Ort::AllocatorWithDefaultOptions allocator;
+    size_t numNodes = session->GetOutputCount();
+    m_strOutputNames.resize(numNodes);
+    m_szOutputNames.resize(numNodes);
+    for (size_t i = 0; i != numNodes; ++i) {    
+        auto t = session->GetOutputNameAllocated(i, allocator);
+        m_strOutputNames[i] = t.get();
+        m_szOutputNames[i] = m_strOutputNames[i].c_str();
     }
 }
 

@@ -1,5 +1,4 @@
 #include "precomp.h"
-#include <unistd.h>
 
 namespace funasr {
 TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thread_num)
@@ -36,10 +35,18 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
         string de_model_path;
         string am_cmvn_path;
         string am_config_path;
+        string token_path;
+        string online_token_path;
         string hw_compile_model_path;
         string seg_dict_path;
         
-        asr_handle = make_unique<Paraformer>();
+        if (model_path.at(MODEL_DIR).find(MODEL_SVS) != std::string::npos)
+        {
+            asr_handle = make_unique<SenseVoiceSmall>();
+            model_type = MODEL_SVS;
+        }else{
+            asr_handle = make_unique<Paraformer>();
+        }
 
         bool enable_hotword = false;
         hw_compile_model_path = PathAppend(model_path.at(MODEL_DIR), MODEL_EB_NAME);
@@ -54,6 +61,7 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
         am_model_path = PathAppend(model_path.at(OFFLINE_MODEL_DIR), MODEL_NAME);
         en_model_path = PathAppend(model_path.at(ONLINE_MODEL_DIR), ENCODER_NAME);
         de_model_path = PathAppend(model_path.at(ONLINE_MODEL_DIR), DECODER_NAME);
+        online_token_path = PathAppend(model_path.at(ONLINE_MODEL_DIR), TOKEN_PATH);
         if(model_path.find(QUANTIZE) != model_path.end() && model_path.at(QUANTIZE) == "true"){
             am_model_path = PathAppend(model_path.at(OFFLINE_MODEL_DIR), QUANT_MODEL_NAME);
             en_model_path = PathAppend(model_path.at(ONLINE_MODEL_DIR), QUANT_ENCODER_NAME);
@@ -61,48 +69,69 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
         }
         am_cmvn_path = PathAppend(model_path.at(ONLINE_MODEL_DIR), AM_CMVN_NAME);
         am_config_path = PathAppend(model_path.at(ONLINE_MODEL_DIR), AM_CONFIG_NAME);
+        token_path = PathAppend(model_path.at(MODEL_DIR), TOKEN_PATH);
 
-        asr_handle->InitAsr(am_model_path, en_model_path, de_model_path, am_cmvn_path, am_config_path, thread_num);
+        asr_handle->InitAsr(am_model_path, en_model_path, de_model_path, am_cmvn_path, am_config_path, token_path, online_token_path, thread_num);
     }else{
         LOG(ERROR) <<"Can not find offline-model-dir or online-model-dir";
         exit(-1);
+    }
+    
+    // Lm resource
+    if (model_path.find(LM_DIR) != model_path.end() && model_path.at(LM_DIR) != "") {
+        string fst_path, lm_config_path, lex_path;
+        fst_path = PathAppend(model_path.at(LM_DIR), LM_FST_RES);
+        lm_config_path = PathAppend(model_path.at(LM_DIR), LM_CONFIG_NAME);
+        lex_path = PathAppend(model_path.at(LM_DIR), LEX_PATH);
+        if (access(lex_path.c_str(), F_OK) != 0 )
+        {
+            LOG(ERROR) << "Lexicon.txt file is not exist, please use the latest version. Skip load LM model.";
+        }else{
+            asr_handle->InitLm(fst_path, lm_config_path, lex_path);
+        }
     }
 
     // PUNC model
     if(model_path.find(PUNC_DIR) != model_path.end()){
         string punc_model_path;
         string punc_config_path;
+        string token_path;
     
         punc_model_path = PathAppend(model_path.at(PUNC_DIR), MODEL_NAME);
         if(model_path.find(PUNC_QUANT) != model_path.end() && model_path.at(PUNC_QUANT) == "true"){
             punc_model_path = PathAppend(model_path.at(PUNC_DIR), QUANT_MODEL_NAME);
         }
         punc_config_path = PathAppend(model_path.at(PUNC_DIR), PUNC_CONFIG_NAME);
+        token_path = PathAppend(model_path.at(PUNC_DIR), TOKEN_PATH);
 
         if (access(punc_model_path.c_str(), F_OK) != 0 ||
-            access(punc_config_path.c_str(), F_OK) != 0 )
+            access(punc_config_path.c_str(), F_OK) != 0 ||
+            access(token_path.c_str(), F_OK) != 0)
         {
             LOG(INFO) << "PUNC model file is not exist, skip load punc model.";
         }else{
+            // punc_online_handle = make_unique<CTTransformerOnline>();
+            // punc_online_handle->InitPunc(punc_model_path, punc_config_path, token_path, thread_num);
+            // use_punc = true;
             // online punc model
             if (punc_model_path.find("realtime") != std::string::npos){
                 punc_online_handle = make_unique<CTTransformerOnline>();
-                punc_online_handle->InitPunc(punc_model_path, punc_config_path, thread_num);
+                punc_online_handle->InitPunc(punc_model_path, punc_config_path, token_path, thread_num);
                 use_punc = true;
             }
             // offline punc model
             else{
                 punc_online_handle = make_unique<CTTransformer>();
-                punc_online_handle->InitPunc(punc_model_path, punc_config_path, thread_num);
+                punc_online_handle->InitPunc(punc_model_path, punc_config_path, token_path, thread_num);
                 use_punc = true;
             }
         }
     }
-
+#if !defined(__APPLE__)
     // Optional: ITN, here we just support language_type=MandarinEnglish
-    if(model_path.find(ITN_MODEL_DIR) != model_path.end()){
-        string itn_tagger_path = PathAppend(model_path.at(ITN_MODEL_DIR), ITN_TAGGER_NAME);
-        string itn_verbalizer_path = PathAppend(model_path.at(ITN_MODEL_DIR), ITN_VERBALIZER_NAME);
+    if(model_path.find(ITN_DIR) != model_path.end()){
+        string itn_tagger_path = PathAppend(model_path.at(ITN_DIR), ITN_TAGGER_NAME);
+        string itn_verbalizer_path = PathAppend(model_path.at(ITN_DIR), ITN_VERBALIZER_NAME);
 
         if (access(itn_tagger_path.c_str(), F_OK) != 0 ||
             access(itn_verbalizer_path.c_str(), F_OK) != 0 )
@@ -114,6 +143,7 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
             use_itn = true;
         }
     }
+#endif
       
 }
 

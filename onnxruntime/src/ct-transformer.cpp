@@ -11,13 +11,13 @@ CTTransformer::CTTransformer()
 {
 }
 
-void CTTransformer::InitPunc(const std::string &punc_model, const std::string &punc_config, int thread_num){
+void CTTransformer::InitPunc(const std::string &punc_model, const std::string &punc_config, const std::string &token_file, int thread_num){
     session_options.SetIntraOpNumThreads(thread_num);
     session_options.SetGraphOptimizationLevel(ORT_ENABLE_ALL);
     session_options.DisableCpuMemArena();
 
     try{
-        m_session = std::make_unique<Ort::Session>(env_, punc_model.c_str(), session_options);
+        m_session = std::make_unique<Ort::Session>(env_, ORTSTRING(punc_model).c_str(), session_options);
         LOG(INFO) << "Successfully load model from " << punc_model;
     }
     catch (std::exception const &e) {
@@ -25,28 +25,18 @@ void CTTransformer::InitPunc(const std::string &punc_model, const std::string &p
         exit(-1);
     }
     // read inputnames outputnames
-    string strName;
-    GetInputName(m_session.get(), strName);
-    m_strInputNames.push_back(strName.c_str());
-    GetInputName(m_session.get(), strName, 1);
-    m_strInputNames.push_back(strName);
+    GetInputNames(m_session.get(), m_strInputNames, m_szInputNames);
+    GetOutputNames(m_session.get(), m_strOutputNames, m_szOutputNames);
     
-    GetOutputName(m_session.get(), strName);
-    m_strOutputNames.push_back(strName);
-
-    for (auto& item : m_strInputNames)
-        m_szInputNames.push_back(item.c_str());
-    for (auto& item : m_strOutputNames)
-        m_szOutputNames.push_back(item.c_str());
-
-	m_tokenizer.OpenYaml(punc_config.c_str());
+	m_tokenizer.OpenYaml(punc_config.c_str(), token_file.c_str());
+    m_tokenizer.JiebaInit(punc_config);
 }
 
 CTTransformer::~CTTransformer()
 {
 }
 
-string CTTransformer::AddPunc(const char* sz_input)
+string CTTransformer::AddPunc(const char* sz_input, std::string language)
 {
     string strResult;
     vector<string> strOut;
@@ -66,8 +56,8 @@ string CTTransformer::AddPunc(const char* sz_input)
     for (size_t i = 0; i < InputData.size(); i += TOKEN_LEN)
     {
         nDiff = (i + TOKEN_LEN) < InputData.size() ? (0) : (i + TOKEN_LEN - InputData.size());
-        vector<int32_t> InputIDs(InputData.begin() + i, InputData.begin() + i + TOKEN_LEN - nDiff);
-        vector<string> InputStr(strOut.begin() + i, strOut.begin() + i + TOKEN_LEN - nDiff);
+        vector<int32_t> InputIDs(InputData.begin() + i, InputData.begin() + i + (TOKEN_LEN - nDiff));
+        vector<string> InputStr(strOut.begin() + i, strOut.begin() + i + (TOKEN_LEN - nDiff));
         InputIDs.insert(InputIDs.begin(), RemainIDs.begin(), RemainIDs.end()); // RemainIDs+InputIDs;
         InputStr.insert(InputStr.begin(), RemainStr.begin(), RemainStr.end()); // RemainStr+InputStr;
 
@@ -94,10 +84,10 @@ string CTTransformer::AddPunc(const char* sz_input)
                 nSentEnd = nLastCommaIndex;
                 Punction[nSentEnd] = PERIOD_INDEX;
             }
-            RemainStr.assign(InputStr.begin() + nSentEnd + 1, InputStr.end());
-            RemainIDs.assign(InputIDs.begin() + nSentEnd + 1, InputIDs.end());
-            InputStr.assign(InputStr.begin(), InputStr.begin() + nSentEnd + 1);  // minit_sentence
-            Punction.assign(Punction.begin(), Punction.begin() + nSentEnd + 1);
+            RemainStr.assign(InputStr.begin() + (nSentEnd + 1), InputStr.end());
+            RemainIDs.assign(InputIDs.begin() + (nSentEnd + 1), InputIDs.end());
+            InputStr.assign(InputStr.begin(), InputStr.begin() + (nSentEnd + 1));  // minit_sentence
+            Punction.assign(Punction.begin(), Punction.begin() + (nSentEnd + 1));
         }
         
         NewPunctuation.insert(NewPunctuation.end(), Punction.begin(), Punction.end());
@@ -139,108 +129,33 @@ string CTTransformer::AddPunc(const char* sz_input)
             }
         }
     }
-    for (auto& item : NewSentenceOut)
+
+    for (auto& item : NewSentenceOut){
         strResult += item;
+    }
+    
+    if(language == "en-bpe"){
+        std::vector<std::string> chineseSymbols;
+        chineseSymbols.push_back("，");
+        chineseSymbols.push_back("。");
+        chineseSymbols.push_back("、");
+        chineseSymbols.push_back("？");
+
+        std::string englishSymbols = ",.,?";
+        for (size_t i = 0; i < chineseSymbols.size(); i++) {
+            size_t pos = 0;
+            while ((pos = strResult.find(chineseSymbols[i], pos)) != std::string::npos) {
+                strResult.replace(pos, 3, 1, englishSymbols[i]);
+                pos++;
+            }
+        }
+    }
+
     return strResult;
 }
 
-
-string CTTransformer::AddPunc(const char* sz_input, vector<string> &arr_cache)
-{
-    string strResult;
-    vector<string> strOut;
-    vector<int> InputData;
-    m_tokenizer.Tokenize(sz_input, strOut, InputData); 
-
-    int nTotalBatch = ceil((float)InputData.size() / TOKEN_LEN);
-    int nCurBatch = -1;
-    int nSentEnd = -1, nLastCommaIndex = -1;
-    vector<int32_t> RemainIDs; // 
-    vector<string> RemainStr; //
-    vector<int> NewPunctuation; //
-    vector<string> NewString; //
-    vector<string> NewSentenceOut;
-    vector<int> NewPuncOut;
-    int nDiff = 0;
-    for (size_t i = 0; i < InputData.size(); i += TOKEN_LEN)
-    {
-        nDiff = (i + TOKEN_LEN) < InputData.size() ? (0) : (i + TOKEN_LEN - InputData.size());
-        vector<int32_t> InputIDs(InputData.begin() + i, InputData.begin() + i + TOKEN_LEN - nDiff);
-        vector<string> InputStr(strOut.begin() + i, strOut.begin() + i + TOKEN_LEN - nDiff);
-        InputIDs.insert(InputIDs.begin(), RemainIDs.begin(), RemainIDs.end()); // RemainIDs+InputIDs;
-        InputStr.insert(InputStr.begin(), RemainStr.begin(), RemainStr.end()); // RemainStr+InputStr;
-
-        auto Punction = Infer(InputIDs);
-        nCurBatch = i / TOKEN_LEN;
-        if (nCurBatch < nTotalBatch - 1) // not the last minisetence
-        {
-            nSentEnd = -1;
-            nLastCommaIndex = -1;
-            for (int nIndex = Punction.size() - 2; nIndex > 0; nIndex--)
-            {
-                if (m_tokenizer.Id2Punc(Punction[nIndex]) == m_tokenizer.Id2Punc(PERIOD_INDEX) || m_tokenizer.Id2Punc(Punction[nIndex]) == m_tokenizer.Id2Punc(QUESTION_INDEX))
-                {
-                    nSentEnd = nIndex;
-                    break;
-                }
-                if (nLastCommaIndex < 0 && m_tokenizer.Id2Punc(Punction[nIndex]) == m_tokenizer.Id2Punc(COMMA_INDEX))
-                {
-                    nLastCommaIndex = nIndex;
-                }
-            }
-            if (nSentEnd < 0 && InputStr.size() > CACHE_POP_TRIGGER_LIMIT && nLastCommaIndex > 0)
-            {
-                nSentEnd = nLastCommaIndex;
-                Punction[nSentEnd] = PERIOD_INDEX;
-            }
-            RemainStr.assign(InputStr.begin() + nSentEnd + 1, InputStr.end());
-            RemainIDs.assign(InputIDs.begin() + nSentEnd + 1, InputIDs.end());
-            InputStr.assign(InputStr.begin(), InputStr.begin() + nSentEnd + 1);  // minit_sentence
-            Punction.assign(Punction.begin(), Punction.begin() + nSentEnd + 1);
-        }
-        
-        NewPunctuation.insert(NewPunctuation.end(), Punction.begin(), Punction.end());
-        vector<string> WordWithPunc;
-        for (int i = 0; i < InputStr.size(); i++)
-        {
-            // if (i > 0 && !(InputStr[i][0] & 0x80) && (i + 1) <InputStr.size() && !(InputStr[i+1][0] & 0x80))// �м��Ӣ�ģ�
-            if (i > 0 && !(InputStr[i-1][0] & 0x80) && !(InputStr[i][0] & 0x80))
-            {
-                InputStr[i] = " " + InputStr[i];
-            }
-            WordWithPunc.push_back(InputStr[i]);
-
-            if (Punction[i] != NOTPUNC_INDEX) // �»���
-            {
-                WordWithPunc.push_back(m_tokenizer.Id2Punc(Punction[i]));
-            }
-        }
-
-        NewString.insert(NewString.end(), WordWithPunc.begin(), WordWithPunc.end()); // new_mini_sentence += "".join(words_with_punc)
-        NewSentenceOut = NewString;
-        NewPuncOut = NewPunctuation;
-        // last mini sentence
-        if(nCurBatch == nTotalBatch - 1)
-        {
-            if (NewString[NewString.size() - 1] == m_tokenizer.Id2Punc(COMMA_INDEX) || NewString[NewString.size() - 1] == m_tokenizer.Id2Punc(DUN_INDEX))
-            {
-                NewSentenceOut.assign(NewString.begin(), NewString.end() - 1);
-                NewSentenceOut.push_back(m_tokenizer.Id2Punc(PERIOD_INDEX));
-                NewPuncOut.assign(NewPunctuation.begin(), NewPunctuation.end() - 1);
-                NewPuncOut.push_back(PERIOD_INDEX);
-            }
-            else if (NewString[NewString.size() - 1] != m_tokenizer.Id2Punc(PERIOD_INDEX) && NewString[NewString.size() - 1] != m_tokenizer.Id2Punc(QUESTION_INDEX))
-            {
-                NewSentenceOut = NewString;
-                NewSentenceOut.push_back(m_tokenizer.Id2Punc(PERIOD_INDEX));
-                NewPuncOut = NewPunctuation;
-                NewPuncOut.push_back(PERIOD_INDEX);
-            }
-        }
-    }
-    for (auto& item : NewSentenceOut)
-        strResult += item;
-    return strResult;
+string CTTransformer::AddPunc(const char* sz_input, vector<string> &arr_cache, std::string language){
+    return this->AddPunc(sz_input, language);
 }
 
 

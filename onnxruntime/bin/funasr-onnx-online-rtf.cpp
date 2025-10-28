@@ -38,7 +38,7 @@ bool is_target_file(const std::string& filename, const std::string target) {
     return (extension == target);
 }
 
-void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wav_ids,
+void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wav_ids, int audio_fs,
             float* total_length, long* total_time, int core_id) {
     
     struct timeval start, end;
@@ -52,7 +52,7 @@ void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wa
     // warm up
     for (size_t i = 0; i < 10; i++)
     {
-        int32_t sampling_rate_ = -1;
+        int32_t sampling_rate_ = audio_fs;
         funasr::Audio audio(1);
 		if(is_target_file(wav_list[0].c_str(), "wav")){
 			if(!audio.LoadWav2Char(wav_list[0].c_str(), &sampling_rate_)){
@@ -84,7 +84,7 @@ void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wa
                 } else {
                     is_final = false;
             }
-            FUNASR_RESULT result = FunASRInferBuffer(online_handle, speech_buff+sample_offset, step, RASR_NONE, NULL, is_final, 16000);
+            FUNASR_RESULT result = FunASRInferBuffer(online_handle, speech_buff+sample_offset, step, RASR_NONE, nullptr, is_final, sampling_rate_);
             if (result)
             {
                 FunASRFreeResult(result);
@@ -98,7 +98,7 @@ void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wa
         if (i >= wav_list.size()) {
             break;
         }
-        int32_t sampling_rate_ = -1;
+        int32_t sampling_rate_ = audio_fs;
         funasr::Audio audio(1);
 		if(is_target_file(wav_list[i].c_str(), "wav")){
 			if(!audio.LoadWav2Char(wav_list[i].c_str(), &sampling_rate_)){
@@ -130,9 +130,9 @@ void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wa
                 } else {
                     is_final = false;
             }
-            gettimeofday(&start, NULL);
-            FUNASR_RESULT result = FunASRInferBuffer(online_handle, speech_buff+sample_offset, step, RASR_NONE, NULL, is_final, 16000);
-            gettimeofday(&end, NULL);
+            gettimeofday(&start, nullptr);
+            FUNASR_RESULT result = FunASRInferBuffer(online_handle, speech_buff+sample_offset, step, RASR_NONE, nullptr, is_final, sampling_rate_);
+            gettimeofday(&end, nullptr);
             seconds = (end.tv_sec - start.tv_sec);
             long taking_micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
             n_total_time += taking_micros;
@@ -186,6 +186,7 @@ int main(int argc, char *argv[])
     TCLAP::ValueArg<std::string>    punc_quant("", PUNC_QUANT, "true (Default), load the model of model.onnx in punc_dir. If set true, load the model of model_quant.onnx in punc_dir", false, "true", "string");
 
     TCLAP::ValueArg<std::string> wav_path("", WAV_PATH, "the input could be: wav_path, e.g.: asr_example.wav; pcm_path, e.g.: asr_example.pcm; wav.scp, kaldi style wav list (wav_id \t wav_path)", true, "", "string");
+    TCLAP::ValueArg<std::int32_t>   audio_fs("", AUDIO_FS, "the sample rate of audio", false, 16000, "int32_t");
     TCLAP::ValueArg<std::int32_t> thread_num("", THREAD_NUM, "multi-thread num for rtf", true, 0, "int32_t");
 
     cmd.add(model_dir);
@@ -195,6 +196,7 @@ int main(int argc, char *argv[])
     cmd.add(punc_dir);
     cmd.add(punc_quant);
     cmd.add(wav_path);
+    cmd.add(audio_fs);
     cmd.add(thread_num);
     cmd.parse(argc, argv);
 
@@ -208,7 +210,7 @@ int main(int argc, char *argv[])
     GetValue(wav_path, WAV_PATH, model_path);
 
     struct timeval start, end;
-    gettimeofday(&start, NULL);
+    gettimeofday(&start, nullptr);
     FUNASR_HANDLE asr_handle=FunASRInit(model_path, 1, ASR_ONLINE);
 
     if (!asr_handle)
@@ -217,7 +219,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    gettimeofday(&end, NULL);
+    gettimeofday(&end, nullptr);
     long seconds = (end.tv_sec - start.tv_sec);
     long modle_init_micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
     LOG(INFO) << "Model initialization takes " << (double)modle_init_micros / 1000000 << " s";
@@ -260,7 +262,7 @@ int main(int argc, char *argv[])
     int rtf_threds = thread_num.getValue();
     for (int i = 0; i < rtf_threds; i++)
     {
-        threads.emplace_back(thread(runReg, asr_handle, wav_list, wav_ids, &total_length, &total_time, i));
+        threads.emplace_back(thread(runReg, asr_handle, wav_list, wav_ids, audio_fs.getValue(), &total_length, &total_time, i));
     }
 
     for (auto& thread : threads)

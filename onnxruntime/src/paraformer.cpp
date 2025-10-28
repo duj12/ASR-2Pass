@@ -18,11 +18,12 @@ Paraformer::Paraformer()
 }
 
 // offline
-void Paraformer::InitAsr(const std::string &am_model, const std::string &am_cmvn, const std::string &am_config, int thread_num){
+void Paraformer::InitAsr(const std::string &am_model, const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, int thread_num){
+    LoadConfigFromYaml(am_config.c_str());
     // knf options
     fbank_opts_.frame_opts.dither = 0;
     fbank_opts_.mel_opts.num_bins = n_mels;
-    fbank_opts_.frame_opts.samp_freq = MODEL_SAMPLE_RATE;
+    fbank_opts_.frame_opts.samp_freq = asr_sample_rate;
     fbank_opts_.frame_opts.window_type = window_type;
     fbank_opts_.frame_opts.frame_shift_ms = frame_shift;
     fbank_opts_.frame_opts.frame_length_ms = frame_length;
@@ -37,45 +38,28 @@ void Paraformer::InitAsr(const std::string &am_model, const std::string &am_cmvn
     session_options_.DisableCpuMemArena();
 
     try {
-        m_session_ = std::make_unique<Ort::Session>(env_, am_model.c_str(), session_options_);
+        m_session_ = std::make_unique<Ort::Session>(env_, ORTSTRING(am_model).c_str(), session_options_);
         LOG(INFO) << "Successfully load model from " << am_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load am onnx model: " << e.what();
         exit(-1);
     }
 
-    string strName;
-    GetInputName(m_session_.get(), strName);
-    m_strInputNames.push_back(strName.c_str());
-    GetInputName(m_session_.get(), strName,1);
-    m_strInputNames.push_back(strName);
-    if (use_hotword) {
-        GetInputName(m_session_.get(), strName, 2);
-        m_strInputNames.push_back(strName);
-    }
-    
-    size_t numOutputNodes = m_session_->GetOutputCount();
-    for(int index=0; index<numOutputNodes; index++){
-        GetOutputName(m_session_.get(), strName, index);
-        m_strOutputNames.push_back(strName);
-    }
-
-    for (auto& item : m_strInputNames)
-        m_szInputNames.push_back(item.c_str());
-    for (auto& item : m_strOutputNames)
-        m_szOutputNames.push_back(item.c_str());
-    vocab = new Vocab(am_config.c_str());
+    GetInputNames(m_session_.get(), m_strInputNames, m_szInputNames);
+    GetOutputNames(m_session_.get(), m_strOutputNames, m_szOutputNames);
+    vocab = new Vocab(token_file.c_str());
+	phone_set_ = new PhoneSet(token_file.c_str());
     LoadCmvn(am_cmvn.c_str());
 }
 
 // online
-void Paraformer::InitAsr(const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, const std::string &am_config, int thread_num){
+void Paraformer::InitAsr(const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, int thread_num){
     
     LoadOnlineConfigFromYaml(am_config.c_str());
     // knf options
     fbank_opts_.frame_opts.dither = 0;
     fbank_opts_.mel_opts.num_bins = n_mels;
-    fbank_opts_.frame_opts.samp_freq = MODEL_SAMPLE_RATE;
+    fbank_opts_.frame_opts.samp_freq = asr_sample_rate;
     fbank_opts_.frame_opts.window_type = window_type;
     fbank_opts_.frame_opts.frame_shift_ms = frame_shift;
     fbank_opts_.frame_opts.frame_length_ms = frame_length;
@@ -89,7 +73,7 @@ void Paraformer::InitAsr(const std::string &en_model, const std::string &de_mode
     session_options_.DisableCpuMemArena();
 
     try {
-        encoder_session_ = std::make_unique<Ort::Session>(env_, en_model.c_str(), session_options_);
+        encoder_session_ = std::make_unique<Ort::Session>(env_, ORTSTRING(en_model).c_str(), session_options_);
         LOG(INFO) << "Successfully load model from " << en_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load am encoder model: " << e.what();
@@ -97,7 +81,7 @@ void Paraformer::InitAsr(const std::string &en_model, const std::string &de_mode
     }
 
     try {
-        decoder_session_ = std::make_unique<Ort::Session>(env_, de_model.c_str(), session_options_);
+        decoder_session_ = std::make_unique<Ort::Session>(env_, ORTSTRING(de_model).c_str(), session_options_);
         LOG(INFO) << "Successfully load model from " << de_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load am decoder model: " << e.what();
@@ -141,46 +125,70 @@ void Paraformer::InitAsr(const std::string &en_model, const std::string &de_mode
     for (auto& item : de_strOutputNames)
         de_szOutputNames_.push_back(item.c_str());
 
-    vocab = new Vocab(am_config.c_str());
+    vocab = new Vocab(token_file.c_str());
+    phone_set_ = new PhoneSet(token_file.c_str());
     LoadCmvn(am_cmvn.c_str());
 }
 
 // 2pass
-void Paraformer::InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, const std::string &am_config, int thread_num){
+void Paraformer::InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, 
+    const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num){
     // online
-    InitAsr(en_model, de_model, am_cmvn, am_config, thread_num);
+    InitAsr(en_model, de_model, am_cmvn, am_config, online_token_file, thread_num);
 
     // offline
     try {
-        m_session_ = std::make_unique<Ort::Session>(env_, am_model.c_str(), session_options_);
+        m_session_ = std::make_unique<Ort::Session>(env_, ORTSTRING(am_model).c_str(), session_options_);
         LOG(INFO) << "Successfully load model from " << am_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load am onnx model: " << e.what();
         exit(-1);
     }
 
-    string strName;
-    GetInputName(m_session_.get(), strName);
-    m_strInputNames.push_back(strName.c_str());
-    GetInputName(m_session_.get(), strName,1);
-    m_strInputNames.push_back(strName);
+    GetInputNames(m_session_.get(), m_strInputNames, m_szInputNames);
+    GetOutputNames(m_session_.get(), m_strOutputNames, m_szOutputNames);
+}
 
-    if (use_hotword) {
-        GetInputName(m_session_.get(), strName, 2);
-        m_strInputNames.push_back(strName);
+void Paraformer::InitLm(const std::string &lm_file, 
+                        const std::string &lm_cfg_file, 
+                        const std::string &lex_file) {
+    try {
+        lm_ = std::shared_ptr<fst::Fst<fst::StdArc>>(
+            fst::Fst<fst::StdArc>::Read(lm_file));
+        if (lm_){
+            lm_vocab = new Vocab(lm_cfg_file.c_str(), lex_file.c_str());
+            LOG(INFO) << "Successfully load lm file " << lm_file;
+        }else{
+            LOG(ERROR) << "Failed to load lm file " << lm_file;
+        }
+    } catch (std::exception const &e) {
+        LOG(ERROR) << "Error when load lm file: " << e.what();
+        exit(0);
     }
-    
-    // support time stamp
-    size_t numOutputNodes = m_session_->GetOutputCount();
-    for(int index=0; index<numOutputNodes; index++){
-        GetOutputName(m_session_.get(), strName, index);
-        m_strOutputNames.push_back(strName);
+}
+
+void Paraformer::LoadConfigFromYaml(const char* filename){
+
+    YAML::Node config;
+    try{
+        config = YAML::LoadFile(filename);
+    }catch(exception const &e){
+        LOG(ERROR) << "Error loading file, yaml file error or not exist.";
+        exit(-1);
     }
 
-    for (auto& item : m_strInputNames)
-        m_szInputNames.push_back(item.c_str());
-    for (auto& item : m_strOutputNames)
-        m_szOutputNames.push_back(item.c_str());
+    try{
+        YAML::Node frontend_conf = config["frontend_conf"];
+        this->asr_sample_rate = frontend_conf["fs"].as<int>();
+
+        YAML::Node lang_conf = config["lang"];
+        if (lang_conf.IsDefined()){
+            language = lang_conf.as<string>();
+        }
+    }catch(exception const &e){
+        LOG(ERROR) << "Error when load argument from vad config YAML.";
+        exit(-1);
+    }
 }
 
 void Paraformer::LoadOnlineConfigFromYaml(const char* filename){
@@ -215,6 +223,9 @@ void Paraformer::LoadOnlineConfigFromYaml(const char* filename){
         this->cif_threshold = predictor_conf["threshold"].as<double>();
         this->tail_alphas = predictor_conf["tail_threshold"].as<double>();
 
+        this->asr_sample_rate = frontend_conf["fs"].as<int>();
+
+
     }catch(exception const &e){
         LOG(ERROR) << "Error when load argument from vad config YAML.";
         exit(-1);
@@ -228,7 +239,7 @@ void Paraformer::InitHwCompiler(const std::string &hw_model, int thread_num) {
     hw_session_options.DisableCpuMemArena();
 
     try {
-        hw_m_session = std::make_unique<Ort::Session>(hw_env_, hw_model.c_str(), hw_session_options);
+        hw_m_session = std::make_unique<Ort::Session>(hw_env_, ORTSTRING(hw_model).c_str(), hw_session_options);
         LOG(INFO) << "Successfully load model from " << hw_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load hw compiler onnx model: " << e.what();
@@ -258,40 +269,46 @@ void Paraformer::InitSegDict(const std::string &seg_dict_model) {
 
 Paraformer::~Paraformer()
 {
-    if(vocab)
+    if(vocab){
         delete vocab;
-    if(seg_dict)
+    }
+    if(lm_vocab){
+        delete lm_vocab;
+    }
+    if(seg_dict){
         delete seg_dict;
+    }
+    if(phone_set_){
+        delete phone_set_;
+    }
+}
+
+void Paraformer::StartUtterance()
+{
+}
+
+void Paraformer::EndUtterance()
+{
 }
 
 void Paraformer::Reset()
 {
 }
 
-vector<float> Paraformer::FbankKaldi(float sample_rate, const float* waves, int len) {
+void Paraformer::FbankKaldi(float sample_rate, const float* waves, int len, std::vector<std::vector<float>> &asr_feats) {
     knf::OnlineFbank fbank_(fbank_opts_);
     std::vector<float> buf(len);
     for (int32_t i = 0; i != len; ++i) {
         buf[i] = waves[i] * 32768;
     }
     fbank_.AcceptWaveform(sample_rate, buf.data(), buf.size());
-    //fbank_->InputFinished();
+
     int32_t frames = fbank_.NumFramesReady();
-    int32_t feature_dim = fbank_opts_.mel_opts.num_bins;
-    vector<float> features(frames * feature_dim);
-    float *p = features.data();
-    //std::cout << "samples " << len << std::endl;
-    //std::cout << "fbank frames " << frames << std::endl;
-    //std::cout << "fbank dim " << feature_dim << std::endl;
-    //std::cout << "feature size " << features.size() << std::endl;
-
     for (int32_t i = 0; i != frames; ++i) {
-        const float *f = fbank_.GetFrame(i);
-        std::copy(f, f + feature_dim, p);
-        p += feature_dim;
+        const float *frame = fbank_.GetFrame(i);
+        std::vector<float> frame_vector(frame, frame + fbank_opts_.mel_opts.num_bins);
+        asr_feats.emplace_back(frame_vector);
     }
-
-    return features;
 }
 
 void Paraformer::LoadCmvn(const char *filename)
@@ -342,7 +359,7 @@ string Paraformer::GreedySearch(float * in, int n_len,  int64_t token_nums, bool
         hyps.push_back(max_idx);
     }
     if(!is_stamp){
-        return vocab->Vector2StringV2(hyps);
+        return vocab->Vector2StringV2(hyps, language);
     }else{
         std::vector<string> char_list;
         std::vector<std::vector<float>> timestamp_list;
@@ -355,281 +372,85 @@ string Paraformer::GreedySearch(float * in, int n_len,  int64_t token_nums, bool
     }
 }
 
-string Paraformer::PostProcess(std::vector<string> &raw_char, std::vector<std::vector<float>> &timestamp_list){
-    std::vector<std::vector<float>> timestamp_merge;
-    int i;
-    list<string> words;
-    int is_pre_english = false;
-    int pre_english_len = 0;
-    int is_combining = false;
-    string combine = "";
-
-    float begin=-1;
-    for (i=0; i<raw_char.size(); i++){
-        string word = raw_char[i];
-        // step1 space character skips
-        if (word == "<s>" || word == "</s>" || word == "<unk>")
-            continue;
-        // step2 combie phoneme to full word
-        {
-            int sub_word = !(word.find("@@") == string::npos);
-            // process word start and middle part
-            if (sub_word) {
-                combine += word.erase(word.length() - 2);
-                if(!is_combining){
-                    begin = timestamp_list[i][0];
-                }
-                is_combining = true;
-                continue;
-            }
-            // process word end part
-            else if (is_combining) {
-                combine += word;
-                is_combining = false;
-                word = combine;
-                combine = "";
-            }
-        }
-
-        // step3 process english word deal with space , turn abbreviation to upper case
-        {
-            // input word is chinese, not need process 
-            if (vocab->IsChinese(word)) {
-                words.push_back(word);
-                timestamp_merge.emplace_back(timestamp_list[i]);
-                is_pre_english = false;
-            }
-            // input word is english word
-            else {
-                // pre word is chinese
-                if (!is_pre_english) {
-                    // word[0] = word[0] - 32;
-                    words.push_back(word);
-                    begin = (begin==-1)?timestamp_list[i][0]:begin;
-                    std::vector<float> vec = {begin, timestamp_list[i][1]};
-                    timestamp_merge.emplace_back(vec);
-                    begin = -1;
-                    pre_english_len = word.size();
-                }
-                // pre word is english word
-                else {
-                    // single letter turn to upper case
-                    // if (word.size() == 1) {
-                    //     word[0] = word[0] - 32;
-                    // }
-
-                    if (pre_english_len > 1) {
-                        words.push_back(" ");
-                        words.push_back(word);
-                        begin = (begin==-1)?timestamp_list[i][0]:begin;
-                        std::vector<float> vec = {begin, timestamp_list[i][1]};
-                        timestamp_merge.emplace_back(vec);
-                        begin = -1;
-                        pre_english_len = word.size();
-                    }
-                    else {
-                        // if (word.size() > 1) {
-                        //     words.push_back(" ");
-                        // }
-                        words.push_back(" ");
-                        words.push_back(word);
-                        begin = (begin==-1)?timestamp_list[i][0]:begin;
-                        std::vector<float> vec = {begin, timestamp_list[i][1]};
-                        timestamp_merge.emplace_back(vec);
-                        begin = -1;
-                        pre_english_len = word.size();
-                    }
-                }
-                is_pre_english = true;
-            }
-        }
-    }
-    string stamp_str="";
-    for (i=0; i<timestamp_merge.size(); i++) {
-        stamp_str += std::to_string(timestamp_merge[i][0]);
-        stamp_str += ", ";
-        stamp_str += std::to_string(timestamp_merge[i][1]);
-        if(i!=timestamp_merge.size()-1){
-            stamp_str += ",";
-        }
-    }
-
-    stringstream ss;
-    for (auto it = words.begin(); it != words.end(); it++) {
-        ss << *it;
-    }
-
-    return ss.str()+" | "+stamp_str;
+string Paraformer::BeamSearch(WfstDecoder* &wfst_decoder, float *in, int len, int64_t token_nums)
+{
+  return wfst_decoder->Search(in, len, token_nums);
 }
 
-void Paraformer::TimestampOnnx(std::vector<float>& us_alphas,
-                                std::vector<float> us_cif_peak, 
-                                std::vector<string>& char_list, 
-                                std::string &res_str, 
-                                std::vector<std::vector<float>> &timestamp_vec, 
-                                float begin_time, 
-                                float total_offset){
-    if (char_list.empty()) {
-        return ;
-    }
+string Paraformer::FinalizeDecode(WfstDecoder* &wfst_decoder,
+                                  bool is_stamp, std::vector<float> us_alphas, std::vector<float> us_cif_peak)
+{
+  return wfst_decoder->FinalizeDecode(is_stamp, us_alphas, us_cif_peak);
+}
 
-    const float START_END_THRESHOLD = 5.0;
-    const float MAX_TOKEN_DURATION = 30.0;
-    const float TIME_RATE = 10.0 * 6 / 1000 / 3;
-    // 3 times upsampled, cif_peak is flattened into a 1D array
-    std::vector<float> cif_peak = us_cif_peak;
-    int num_frames = cif_peak.size();
-    if (char_list.back() == "</s>") {
-        char_list.pop_back();
-    }
-    if (char_list.empty()) {
-        return ;
-    }
-    vector<vector<float>> timestamp_list;
-    vector<string> new_char_list;
-    vector<float> fire_place;
-    // for bicif model trained with large data, cif2 actually fires when a character starts
-    // so treat the frames between two peaks as the duration of the former token
-    for (int i = 0; i < num_frames; i++) {
-        if (cif_peak[i] > 1.0 - 1e-4) {
-            fire_place.push_back(i + total_offset);
-        }
-    }
-    int num_peak = fire_place.size();
-    if(num_peak != (int)char_list.size() + 1){
-        float sum = std::accumulate(us_alphas.begin(), us_alphas.end(), 0.0f);
-        float scale = sum/((int)char_list.size() + 1);
-        if(scale == 0){
-            return;
-        }
-        cif_peak.clear();
-        sum = 0.0;
-        for(auto &alpha:us_alphas){
-            alpha = alpha/scale;
-            sum += alpha;
-            cif_peak.emplace_back(sum);
-            if(sum>=1.0 - 1e-4){
-                sum -=(1.0 - 1e-4);
-            }            
-        }
+void Paraformer::LfrCmvn(std::vector<std::vector<float>> &asr_feats) {
 
-        fire_place.clear();
-        for (int i = 0; i < num_frames; i++) {
-            if (cif_peak[i] > 1.0 - 1e-4) {
-                fire_place.push_back(i + total_offset);
+    std::vector<std::vector<float>> out_feats;
+    int T = asr_feats.size();
+    int T_lrf = ceil(1.0 * T / lfr_n);
+
+    // Pad frames at start(copy first frame)
+    for (int i = 0; i < (lfr_m - 1) / 2; i++) {
+        asr_feats.insert(asr_feats.begin(), asr_feats[0]);
+    }
+    // Merge lfr_m frames as one,lfr_n frames per window
+    T = T + (lfr_m - 1) / 2;
+    std::vector<float> p;
+    for (int i = 0; i < T_lrf; i++) {
+        if (lfr_m <= T - i * lfr_n) {
+            for (int j = 0; j < lfr_m; j++) {
+                p.insert(p.end(), asr_feats[i * lfr_n + j].begin(), asr_feats[i * lfr_n + j].end());
             }
-        }
-    }
-    
-    num_peak = fire_place.size();
-    if(fire_place.size() == 0){
-        return;
-    }
-
-    // begin silence
-    if (fire_place[0] > START_END_THRESHOLD) {
-        new_char_list.push_back("<sil>");
-        timestamp_list.push_back({0.0, fire_place[0] * TIME_RATE});
-    }
-
-    // tokens timestamp
-    for (int i = 0; i < num_peak - 1; i++) {
-        new_char_list.push_back(char_list[i]);
-        if (i == num_peak - 2 || MAX_TOKEN_DURATION < 0 || fire_place[i + 1] - fire_place[i] < MAX_TOKEN_DURATION) {
-            timestamp_list.push_back({fire_place[i] * TIME_RATE, fire_place[i + 1] * TIME_RATE});
+            out_feats.emplace_back(p);
+            p.clear();
         } else {
-            // cut the duration to token and sil of the 0-weight frames last long
-            float _split = fire_place[i] + MAX_TOKEN_DURATION;
-            timestamp_list.push_back({fire_place[i] * TIME_RATE, _split * TIME_RATE});
-            timestamp_list.push_back({_split * TIME_RATE, fire_place[i + 1] * TIME_RATE});
-            new_char_list.push_back("<sil>");
+            // Fill to lfr_m frames at last window if less than lfr_m frames  (copy last frame)
+            int num_padding = lfr_m - (T - i * lfr_n);
+            for (int j = 0; j < (asr_feats.size() - i * lfr_n); j++) {
+                p.insert(p.end(), asr_feats[i * lfr_n + j].begin(), asr_feats[i * lfr_n + j].end());
+            }
+            for (int j = 0; j < num_padding; j++) {
+                p.insert(p.end(), asr_feats[asr_feats.size() - 1].begin(), asr_feats[asr_feats.size() - 1].end());
+            }
+            out_feats.emplace_back(p);
+            p.clear();
         }
     }
-
-    // tail token and end silence
-    if(timestamp_list.size()==0){
-        LOG(ERROR)<<"timestamp_list's size is 0!";
-        return;
-    }
-    if (num_frames - fire_place.back() > START_END_THRESHOLD) {
-        float _end = (num_frames + fire_place.back()) / 2.0;
-        timestamp_list.back()[1] = _end * TIME_RATE;
-        timestamp_list.push_back({_end * TIME_RATE, num_frames * TIME_RATE});
-        new_char_list.push_back("<sil>");
-    } else {
-        timestamp_list.back()[1] = num_frames * TIME_RATE;
-    }
-
-    if (begin_time) {  // add offset time in model with vad
-        for (auto& timestamp : timestamp_list) {
-            timestamp[0] += begin_time / 1000.0;
-            timestamp[1] += begin_time / 1000.0;
+    // Apply cmvn
+    for (auto &out_feat: out_feats) {
+        for (int j = 0; j < means_list_.size(); j++) {
+            out_feat[j] = (out_feat[j] + means_list_[j]) * vars_list_[j];
         }
     }
-
-    assert(new_char_list.size() == timestamp_list.size());
-
-    for (int i = 0; i < (int)new_char_list.size(); i++) {
-        res_str += new_char_list[i] + " " + to_string(timestamp_list[i][0]) + " " + to_string(timestamp_list[i][1]) + ";";
-    }
-
-    for (int i = 0; i < (int)new_char_list.size(); i++) {
-        if(new_char_list[i] != "<sil>"){
-            timestamp_vec.push_back(timestamp_list[i]);
-        }
-    }
+    asr_feats = out_feats;
 }
 
-vector<float> Paraformer::ApplyLfr(const std::vector<float> &in) 
+std::vector<std::string> Paraformer::Forward(float** din, int* len, bool input_finished, const std::vector<std::vector<float>> &hw_emb, void* decoder_handle, int batch_in)
 {
+    std::vector<std::string> results;
+    string result="";
+    WfstDecoder* wfst_decoder = (WfstDecoder*)decoder_handle;
     int32_t in_feat_dim = fbank_opts_.mel_opts.num_bins;
-    int32_t in_num_frames = in.size() / in_feat_dim;
-    int32_t out_num_frames =
-        (in_num_frames - lfr_m) / lfr_n + 1;
-    int32_t out_feat_dim = in_feat_dim * lfr_m;
 
-    std::vector<float> out(out_num_frames * out_feat_dim);
-
-    const float *p_in = in.data();
-    float *p_out = out.data();
-
-    for (int32_t i = 0; i != out_num_frames; ++i) {
-      std::copy(p_in, p_in + out_feat_dim, p_out);
-
-      p_out += out_feat_dim;
-      p_in += lfr_n * in_feat_dim;
+    if(batch_in != 1){
+        results.push_back(result);
+        return results;
     }
 
-    return out;
-  }
-
-  void Paraformer::ApplyCmvn(std::vector<float> *v)
-  {
-    int32_t dim = means_list_.size();
-    int32_t num_frames = v->size() / dim;
-
-    float *p = v->data();
-
-    for (int32_t i = 0; i != num_frames; ++i) {
-      for (int32_t k = 0; k != dim; ++k) {
-        p[k] = (p[k] + means_list_[k]) * vars_list_[k];
-      }
-
-      p += dim;
+    std::vector<std::vector<float>> asr_feats;
+    FbankKaldi(asr_sample_rate, din[0], len[0], asr_feats);
+    if(asr_feats.size() == 0){
+        results.push_back(result);
+        return results;
     }
-  }
-
-string Paraformer::Forward(float* din, int len, bool input_finished, const std::vector<std::vector<float>> &hw_emb)
-{
-
-    int32_t in_feat_dim = fbank_opts_.mel_opts.num_bins;
-    std::vector<float> wav_feats = FbankKaldi(MODEL_SAMPLE_RATE, din, len);
-    wav_feats = ApplyLfr(wav_feats);
-    ApplyCmvn(&wav_feats);
-
+    LfrCmvn(asr_feats);
     int32_t feat_dim = lfr_m*in_feat_dim;
-    int32_t num_frames = wav_feats.size() / feat_dim;
-    //std::cout << "feat in: " << num_frames << " " << feat_dim << std::endl;
+    int32_t num_frames = asr_feats.size();
+
+    std::vector<float> wav_feats;
+    for (const auto &frame_feat: asr_feats) {
+        wav_feats.insert(wav_feats.end(), frame_feat.begin(), frame_feat.end());
+    }
 
 #ifdef _WIN_X86
         Ort::MemoryInfo m_memoryInfo = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
@@ -659,10 +480,11 @@ string Paraformer::Forward(float* din, int len, bool input_finished, const std::
         if (use_hotword) {
             if(hw_emb.size()<=0){
                 LOG(ERROR) << "hw_emb is null";
-                return "";
+                results.push_back(result);
+                return results;
             }
             //PrintMat(hw_emb, "input_clas_emb");
-            const int64_t hotword_shape[3] = {1, hw_emb.size(), hw_emb[0].size()};
+            const int64_t hotword_shape[3] = {1, static_cast<int64_t>(hw_emb.size()), static_cast<int64_t>(hw_emb[0].size())};
             embedding.reserve(hw_emb.size() * hw_emb[0].size());
             for (auto item : hw_emb) {
                 embedding.insert(embedding.end(), item.begin(), item.end());
@@ -676,10 +498,10 @@ string Paraformer::Forward(float* din, int len, bool input_finished, const std::
     }catch (std::exception const &e)
     {
         LOG(ERROR)<<e.what();
-        return "";
+        results.push_back(result);
+        return results;
     }
 
-    string result="";
     try {
         auto outputTensor = m_session_->Run(Ort::RunOptions{nullptr}, m_szInputNames.data(), input_onnx.data(), input_onnx.size(), m_szOutputNames.data(), m_szOutputNames.size());
         std::vector<int64_t> outputShape = outputTensor[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -703,28 +525,32 @@ string Paraformer::Forward(float* din, int len, bool input_finished, const std::
             for (int i = 0; i < us_peaks_shape[1]; i++) {
                 us_peaks[i] = us_peaks_data[i];
             }
-            result = GreedySearch(floatData, *encoder_out_lens, outputShape[2], true, us_alphas, us_peaks);
+			if (lm_ == nullptr) {
+                result = GreedySearch(floatData, *encoder_out_lens, outputShape[2], true, us_alphas, us_peaks);
+			} else {
+			    result = BeamSearch(wfst_decoder, floatData, *encoder_out_lens, outputShape[2]);
+                if (input_finished) {
+                    result = FinalizeDecode(wfst_decoder, true, us_alphas, us_peaks);
+                }
+			}
         }else{
-            result = GreedySearch(floatData, *encoder_out_lens, outputShape[2]);
+			if (lm_ == nullptr) {
+                result = GreedySearch(floatData, *encoder_out_lens, outputShape[2]);
+			} else {
+			    result = BeamSearch(wfst_decoder, floatData, *encoder_out_lens, outputShape[2]);
+                if (input_finished) {
+                    result = FinalizeDecode(wfst_decoder);
+                }
+			}
         }
-//         int pos = 0;
-//         std::vector<std::vector<float>> logits;
-//         for (int j = 0; j < outputShape[1]; j++)
-//         {
-//             std::vector<float> vec_token;
-//             vec_token.insert(vec_token.begin(), floatData + pos, floatData + pos + outputShape[2]);
-//             logits.push_back(vec_token);
-//             pos += outputShape[2];
-//         }
-//         //PrintMat(logits, "logits_out");
-//         result = GreedySearch(floatData, *encoder_out_lens, outputShape[2]);
     }
     catch (std::exception const &e)
     {
         LOG(ERROR)<<e.what();
     }
 
-    return result;
+    results.push_back(result);
+    return results;
 }
 
 
@@ -762,11 +588,19 @@ std::vector<std::vector<float>> Paraformer::CompileHotwordEmbedding(std::string 
         }
         std::vector<int32_t> hw_vector(max_hotword_len, 0);
         int vector_len = std::min(max_hotword_len, (int)chars.size());
-        for (int i=0; i<chars.size(); i++) {
-          std::cout << chars[i] << " ";
-          hw_vector[i] = vocab->GetIdByToken(chars[i]);
+        int chs_oov = false;
+        for (int i=0; i<vector_len; i++) {
+          hw_vector[i] = phone_set_->String2Id(chars[i]);
+          if(hw_vector[i] == -1){
+            chs_oov = true;
+            break;
+          }
         }
-        std::cout << std::endl;
+        if(chs_oov){
+          LOG(INFO) << "OOV: " << hotword;
+          continue;
+        }
+        LOG(INFO) << hotword;
         lengths.push_back(vector_len);
         real_hw_size += 1;
         hotword_matrix.insert(hotword_matrix.end(), hw_vector.begin(), hw_vector.end());
@@ -821,6 +655,21 @@ std::vector<std::vector<float>> Paraformer::CompileHotwordEmbedding(std::string 
     }
     //PrintMat(result, "clas_embedding_output");
     return result;
+}
+
+Vocab* Paraformer::GetVocab()
+{
+    return vocab;
+}
+
+Vocab* Paraformer::GetLmVocab()
+{
+    return lm_vocab;
+}
+
+PhoneSet* Paraformer::GetPhoneSet()
+{
+    return phone_set_;
 }
 
 string Paraformer::Rescoring()

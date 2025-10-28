@@ -30,7 +30,7 @@ void FsmnVad::LoadConfigFromYaml(const char* filename){
 
     try{
         YAML::Node frontend_conf = config["frontend_conf"];
-        YAML::Node post_conf = config["vad_post_conf"];
+        YAML::Node post_conf = config["model_conf"];
 
         this->vad_sample_rate_ = frontend_conf["fs"].as<int>();
         this->vad_silence_duration_ =  post_conf["max_end_silence_time"].as<int>();
@@ -51,67 +51,18 @@ void FsmnVad::LoadConfigFromYaml(const char* filename){
     }
 }
 
-void FsmnVad::SetConfig(int vad_tail_sil, int vad_max_len){
-    vad_silence_duration_ = vad_tail_sil;
-    vad_max_len_ = vad_max_len;
-}
-
 void FsmnVad::ReadModel(const char* vad_model) {
     try {
         vad_session_ = std::make_shared<Ort::Session>(
-                env_, vad_model, session_options_);
+                env_, ORTCHAR(vad_model), session_options_);
         LOG(INFO) << "Successfully load model from " << vad_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load vad onnx model: " << e.what();
         exit(-1);
     }
-    GetInputOutputInfo(vad_session_, &vad_in_names_, &vad_out_names_);
+    GetInputNames(vad_session_.get(), m_strInputNames, vad_in_names_);
+    GetOutputNames(vad_session_.get(), m_strOutputNames, vad_out_names_);
 }
-
-void FsmnVad::GetInputOutputInfo(
-        const std::shared_ptr<Ort::Session> &session,
-        std::vector<const char *> *in_names, std::vector<const char *> *out_names) {
-    Ort::AllocatorWithDefaultOptions allocator;
-    // Input info
-    int num_nodes = session->GetInputCount();
-    in_names->resize(num_nodes);
-    for (int i = 0; i < num_nodes; ++i) {
-        std::unique_ptr<char, Ort::detail::AllocatedFree> name = session->GetInputNameAllocated(i, allocator);
-        Ort::TypeInfo type_info = session->GetInputTypeInfo(i);
-        auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
-        ONNXTensorElementDataType type = tensor_info.GetElementType();
-        std::vector<int64_t> node_dims = tensor_info.GetShape();
-        std::stringstream shape;
-        for (auto j: node_dims) {
-            shape << j;
-            shape << " ";
-        }
-        // LOG(INFO) << "\tInput " << i << " : name=" << name.get() << " type=" << type
-        //           << " dims=" << shape.str();
-        (*in_names)[i] = name.get();
-        name.release();
-    }
-    // Output info
-    num_nodes = session->GetOutputCount();
-    out_names->resize(num_nodes);
-    for (int i = 0; i < num_nodes; ++i) {
-        std::unique_ptr<char, Ort::detail::AllocatedFree> name = session->GetOutputNameAllocated(i, allocator);
-        Ort::TypeInfo type_info = session->GetOutputTypeInfo(i);
-        auto tensor_info = type_info.GetTensorTypeAndShapeInfo();
-        ONNXTensorElementDataType type = tensor_info.GetElementType();
-        std::vector<int64_t> node_dims = tensor_info.GetShape();
-        std::stringstream shape;
-        for (auto j: node_dims) {
-            shape << j;
-            shape << " ";
-        }
-        // LOG(INFO) << "\tOutput " << i << " : name=" << name.get() << " type=" << type
-        //           << " dims=" << shape.str();
-        (*out_names)[i] = name.get();
-        name.release();
-    }
-}
-
 
 void FsmnVad::Forward(
         const std::vector<std::vector<float>> &chunk_feats,
@@ -269,6 +220,7 @@ void FsmnVad::LfrCmvn(std::vector<std::vector<float>> &vad_feats) {
                 p.insert(p.end(), vad_feats[vad_feats.size() - 1].begin(), vad_feats[vad_feats.size() - 1].end());
             }
             out_feats.emplace_back(p);
+            p.clear();
         }
     }
     // Apply cmvn
@@ -284,12 +236,15 @@ std::vector<std::vector<int>>
 FsmnVad::Infer(std::vector<float> &waves, bool input_finished) {
     std::vector<std::vector<float>> vad_feats;
     std::vector<std::vector<float>> vad_probs;
+    std::vector<std::vector<int>> vad_segments;
     FbankKaldi(vad_sample_rate_, vad_feats, waves);
+    if(vad_feats.size() == 0){
+      return vad_segments;
+    }
     LfrCmvn(vad_feats);
     Forward(vad_feats, &vad_probs, &in_cache_, input_finished);
 
     E2EVadModel vad_scorer = E2EVadModel();
-    std::vector<std::vector<int>> vad_segments;
     vad_segments = vad_scorer(vad_probs, waves, true, false, vad_silence_duration_, vad_max_len_,
                               vad_speech_noise_thres_, vad_sample_rate_);
     return vad_segments;

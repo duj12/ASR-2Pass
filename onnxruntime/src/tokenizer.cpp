@@ -17,6 +17,45 @@ CTokenizer::CTokenizer():m_ready(false)
 
 CTokenizer::~CTokenizer()
 {
+	if (jieba_dict_trie_){
+		delete jieba_dict_trie_;
+	}
+	if (jieba_model_){
+    	delete jieba_model_;
+	}
+}
+
+void CTokenizer::SetJiebaRes(cppjieba::DictTrie *dict, cppjieba::HMMModel *hmm) {
+	jieba_processor_.SetJiebaRes(dict, hmm);
+}
+
+void CTokenizer::JiebaInit(std::string punc_config){
+    if (seg_jieba){
+        std::string model_path = punc_config.substr(0, punc_config.length() - (sizeof(PUNC_CONFIG_NAME)-1));
+        std::string jieba_dict_file = PathAppend(model_path, JIEBA_DICT);
+        std::string jieba_hmm_file = PathAppend(model_path, JIEBA_HMM_MODEL);
+        std::string jieba_userdict_file = PathAppend(model_path, JIEBA_USERDICT);
+		try{
+        	jieba_dict_trie_ = new cppjieba::DictTrie(jieba_dict_file, jieba_userdict_file);
+			LOG(INFO) << "Successfully load file from " << jieba_dict_file << ", " << jieba_userdict_file;
+		}catch(exception const &e){
+			LOG(ERROR) << "Error loading file, Jieba dict file error or not exist.";
+			exit(-1);
+		}
+
+		try{
+        	jieba_model_ = new cppjieba::HMMModel(jieba_hmm_file);
+			LOG(INFO) << "Successfully load model from " << jieba_hmm_file;
+		}catch(exception const &e){
+			LOG(ERROR) << "Error loading file, Jieba hmm file error or not exist.";
+			exit(-1);
+		}
+
+        SetJiebaRes(jieba_dict_trie_, jieba_model_);
+    }else {
+        jieba_dict_trie_ = nullptr;
+        jieba_model_ = nullptr;
+    }
 }
 
 void CTokenizer::ReadYaml(const YAML::Node& node) 
@@ -50,6 +89,11 @@ bool CTokenizer::OpenYaml(const char* sz_yamlfile)
 
 	try
 	{
+		YAML::Node conf_seg_jieba = m_Config["seg_jieba"];
+        if (conf_seg_jieba.IsDefined()){
+            seg_jieba = conf_seg_jieba.as<bool>();
+        }
+
 		auto Tokens = m_Config["token_list"];
 		if (Tokens.IsSequence())
 		{
@@ -73,6 +117,61 @@ bool CTokenizer::OpenYaml(const char* sz_yamlfile)
 					m_punc2id.insert(make_pair<string, int>(Puncs[i].as<string>(), i));
 				}
 			}
+		}
+	}
+	catch (YAML::BadFile& e) {
+		LOG(ERROR) << "Read error!";
+		return  false;
+	}
+	m_ready = true;
+	return m_ready;
+}
+
+bool CTokenizer::OpenYaml(const char* sz_yamlfile, const char* token_file)
+{
+	YAML::Node m_Config;
+	try{
+		m_Config = YAML::LoadFile(sz_yamlfile);
+	}catch(exception const &e){
+        LOG(INFO) << "Error loading file, yaml file error or not exist.";
+        exit(-1);
+    }
+
+	try
+	{
+		YAML::Node conf_seg_jieba = m_Config["seg_jieba"];
+        if (conf_seg_jieba.IsDefined()){
+            seg_jieba = conf_seg_jieba.as<bool>();
+        }
+
+		auto Puncs = m_Config["model_conf"]["punc_list"];
+		if (Puncs.IsSequence())
+		{
+			for (size_t i = 0; i < Puncs.size(); ++i)
+			{
+				if (Puncs[i].IsScalar())
+				{ 
+					m_id2punc.push_back(Puncs[i].as<string>());
+					m_punc2id.insert(make_pair<string, int>(Puncs[i].as<string>(), i));
+				}
+			}
+		}
+
+		nlohmann::json json_array;
+		std::ifstream file(token_file);
+		if (file.is_open()) {
+			file >> json_array;
+			file.close();
+		} else {
+			LOG(INFO) << "Error loading token file, token file error or not exist.";
+			return  false;
+		}
+
+		int i = 0;
+		for (const auto& element : json_array) {
+			m_id2token.push_back(element);
+			m_token2id[element] = i;
+			i++;
 		}
 	}
 	catch (YAML::BadFile& e) {
@@ -167,6 +266,14 @@ vector<string> CTokenizer::SplitChineseString(const string & str_info)
 	return list;
 }
 
+vector<string> CTokenizer::SplitChineseJieba(const string & str_info)
+{
+	vector<string> list;
+	jieba_processor_.Cut(str_info, list, false);
+
+	return list;
+}
+
 void CTokenizer::StrSplit(const string& str, const char split, vector<string>& res)
 {
 	if (str == "")
@@ -184,7 +291,7 @@ void CTokenizer::StrSplit(const string& str, const char split, vector<string>& r
 	}
 }
 
- void CTokenizer::Tokenize(const char* str_info, vector<string> & str_out, vector<int> & id_out)
+void CTokenizer::Tokenize(const char* str_info, vector<string> & str_out, vector<int> & id_out)
 {
 	vector<string>  strList;
 	StrSplit(str_info,' ', strList);
@@ -200,7 +307,12 @@ void CTokenizer::StrSplit(const string& str, const char split, vector<string>& r
 				if (current_chinese.size() > 0)
 				{
 					// for utf-8 chinese
-					auto chineseList = SplitChineseString(current_chinese);
+					vector<string> chineseList;
+					if(seg_jieba){
+						chineseList = SplitChineseJieba(current_chinese);
+					}else{
+						chineseList = SplitChineseString(current_chinese);
+					}
 					str_out.insert(str_out.end(), chineseList.begin(),chineseList.end());
 					current_chinese = "";
 				}
@@ -218,7 +330,13 @@ void CTokenizer::StrSplit(const string& str, const char split, vector<string>& r
 		}
 		if (current_chinese.size() > 0)
 		{
-			auto chineseList = SplitChineseString(current_chinese);
+			// for utf-8 chinese
+			vector<string> chineseList;
+			if(seg_jieba){
+				chineseList = SplitChineseJieba(current_chinese);
+			}else{
+				chineseList = SplitChineseString(current_chinese);
+			}
 			str_out.insert(str_out.end(), chineseList.begin(), chineseList.end());
 			current_chinese = "";
 		}

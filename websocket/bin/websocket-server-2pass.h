@@ -21,6 +21,7 @@
 #include <utility>
 #define ASIO_STANDALONE 1  // not boost
 #include <glog/logging.h>
+#include "util/text-utils.h"
 
 #include <fstream>
 #include <functional>
@@ -54,12 +55,13 @@ typedef struct {
   nlohmann::json msg;
   std::shared_ptr<std::vector<char>> samples;
   std::shared_ptr<std::vector<std::vector<std::string>>> punc_cache;
-  std::shared_ptr<std::vector<std::vector<float>>> hotwords_embedding=NULL;
+  std::shared_ptr<std::vector<std::vector<float>>> hotwords_embedding=nullptr;
   std::shared_ptr<websocketpp::lib::mutex> thread_lock; // lock for each connection
-  FUNASR_HANDLE tpass_online_handle=NULL;
+  FUNASR_HANDLE tpass_online_handle=nullptr;
   std::string online_res = "";
   std::string tpass_res = "";
-  std::shared_ptr<asio::io_context::strand>  strand_; // for data execute in order 
+  std::shared_ptr<asio::io_context::strand>  strand_; // for data execute in order
+  FUNASR_DEC_HANDLE decoder_handle=nullptr; 
 } FUNASR_MESSAGE;
 
 // See https://wiki.mozilla.org/Security/Server_Side_TLS for more details about
@@ -116,10 +118,16 @@ class WebSocketServer {
                   nlohmann::json& msg,
                   std::vector<std::vector<std::string>>& punc_cache,
                   std::vector<std::vector<float>> &hotwords_embedding,
-                  bool itn, int vad_tail_sil, int vad_max_len,
                   websocketpp::lib::mutex& thread_lock, bool& is_final,
                   std::string wav_name,
-                  FUNASR_HANDLE& tpass_online_handle);
+                  std::string modetype,
+                  bool itn, int vad_tail_sil, int vad_max_len,
+                  int audio_fs,
+                  std::string wav_format,
+                  FUNASR_HANDLE& tpass_online_handle,
+                  FUNASR_DEC_HANDLE& decoder_handle,
+                  std::string svs_lang,
+                  bool sys_itn);
 
   void initAsr(std::map<std::string, std::string>& model_path, int thread_num);
   void on_message(websocketpp::connection_hdl hdl, message_ptr msg);
@@ -133,7 +141,7 @@ class WebSocketServer {
   asio::io_context& io_decoder_;  // threads for asr decoder
   // std::ofstream fout;
   // FUNASR_HANDLE asr_handle;  // asr engine handle
-  FUNASR_HANDLE tpass_handle=NULL;
+  FUNASR_HANDLE tpass_handle=nullptr;
   bool isonline = true;  // online or offline engine, now only support offline
   bool is_ssl = true;
   server* server_;          // websocket server

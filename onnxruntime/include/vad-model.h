@@ -12,9 +12,7 @@ class VadModel {
     virtual ~VadModel(){};
     virtual void InitVad(const std::string &vad_model, const std::string &vad_cmvn, const std::string &vad_config, int thread_num)=0;
     virtual std::vector<std::vector<int>> Infer(std::vector<float> &waves, bool input_finished=true)=0;
-    
-    virtual void SetConfig(int vad_tail_sil, int vad_max_len)=0;
-
+    virtual int GetVadSampleRate() = 0;
 };
 
 VadModel *CreateVadModel(std::map<std::string, std::string>& model_path, int thread_num);

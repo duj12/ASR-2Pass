@@ -14,7 +14,13 @@ namespace funasr {
 Vocab::Vocab(const char *filename)
 {
     ifstream in(filename);
+    LoadVocabFromJson(filename);
+}
+Vocab::Vocab(const char *filename, const char *lex_file)
+{
+    ifstream in(filename);
     LoadVocabFromYaml(filename);
+    LoadLex(lex_file);
 }
 Vocab::~Vocab()
 {
@@ -24,10 +30,6 @@ void Vocab::LoadVocabFromYaml(const char* filename){
     YAML::Node config;
     try{
         config = YAML::LoadFile(filename);
-		YAML::Node lang_conf = config["lang"];
-        if (lang_conf.IsDefined()){
-            language = lang_conf.as<string>();
-        }
     }catch(exception const &e){
         LOG(INFO) << "Error loading file, yaml file error or not exist.";
         exit(-1);
@@ -39,7 +41,25 @@ void Vocab::LoadVocabFromYaml(const char* filename){
         token_id[it->as<string>()] = i;
         i ++;
     }
-	
+}
+
+void Vocab::LoadVocabFromJson(const char* filename){
+    nlohmann::json json_array;
+    std::ifstream file(filename);
+    if (file.is_open()) {
+        file >> json_array;
+        file.close();
+    } else {
+        LOG(INFO) << "Error loading token file, token file error or not exist.";
+        exit(-1);
+    }
+
+    int i = 0;
+    for (const auto& element : json_array) {
+        vocab.push_back(element);
+        token_id[element] = i;
+        i++;
+    }
 }
 
 void Vocab::LoadLex(const char* filename){
@@ -141,7 +161,7 @@ string Vocab::WordFormat(std::string word)
     }
 }
 
-string Vocab::Vector2StringV2(vector<int> in)
+string Vocab::Vector2StringV2(vector<int> in, std::string language)
 {
     int i;
     list<string> words;

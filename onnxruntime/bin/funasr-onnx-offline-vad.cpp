@@ -68,10 +68,12 @@ int main(int argc, char *argv[])
     TCLAP::ValueArg<std::string>    quantize("", QUANTIZE, "true (Default), load the model of model.onnx in model_dir. If set true, load the model of model_quant.onnx in model_dir", false, "true", "string");
 
     TCLAP::ValueArg<std::string>    wav_path("", WAV_PATH, "the input could be: wav_path, e.g.: asr_example.wav; pcm_path, e.g.: asr_example.pcm; wav.scp, kaldi style wav list (wav_id \t wav_path)", true, "", "string");
+    TCLAP::ValueArg<std::int32_t>   audio_fs("", AUDIO_FS, "the sample rate of audio", false, 16000, "int32_t");
 
     cmd.add(model_dir);
     cmd.add(quantize);
     cmd.add(wav_path);
+    cmd.add(audio_fs);
     cmd.parse(argc, argv);
 
     std::map<std::string, std::string> model_path;
@@ -80,7 +82,7 @@ int main(int argc, char *argv[])
     GetValue(wav_path, WAV_PATH, model_path);
 
     struct timeval start, end;
-    gettimeofday(&start, NULL);
+    gettimeofday(&start, nullptr);
     int thread_num = 1;
     FUNASR_HANDLE vad_hanlde=FsmnVadInit(model_path, thread_num);
 
@@ -90,7 +92,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    gettimeofday(&end, NULL);
+    gettimeofday(&end, nullptr);
     long seconds = (end.tv_sec - start.tv_sec);
     long modle_init_micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
     LOG(INFO) << "Model initialization takes " << (double)modle_init_micros / 1000000 << " s";
@@ -130,9 +132,9 @@ int main(int argc, char *argv[])
     for (int i = 0; i < wav_list.size(); i++) {
         auto& wav_file = wav_list[i];
         auto& wav_id = wav_ids[i];
-        gettimeofday(&start, NULL);
-        FUNASR_RESULT result=FsmnVadInfer(vad_hanlde, wav_file.c_str(), NULL, 16000);
-        gettimeofday(&end, NULL);
+        gettimeofday(&start, nullptr);
+        FUNASR_RESULT result=FsmnVadInfer(vad_hanlde, wav_file.c_str(), nullptr, audio_fs.getValue());
+        gettimeofday(&end, nullptr);
         seconds = (end.tv_sec - start.tv_sec);
         taking_micros += ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);
 
