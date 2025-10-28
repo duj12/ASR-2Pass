@@ -25,6 +25,9 @@ download_model_dir="models"
 vad_dir="damo/speech_fsmn_vad_zh-cn-16k-common-onnx"
 model_dir="damo/speech_paraformer-large_asr_nat-en-16k-common-vocab10020-onnx"
 punc_dir="damo/punc_ct-transformer_cn-en-common-vocab471067-large-onnx"
+lm_dir="damo/speech_ngram_lm_zh-cn-ai-wesp-fst"
+hotword="$(pwd)/hotwords.txt"
+
 decoder_thread_num=16
 io_thread_num=4
 port=10098
@@ -41,10 +44,12 @@ $build/bin/funasr-wss-server  \
   --quantize $quantize  \
   --vad-dir ${vad_dir} \
   --punc-dir ${punc_dir} \
-  --itn-model-dir ""  \
+  --itn-dir ""  \
   --decoder-thread-num ${decoder_thread_num} \
   --io-thread-num  ${io_thread_num} \
   --port ${port} \
   --certfile  "" \
-  --keyfile ""
+  --keyfile ""  \
+  --lm-dir "${lm_dir}" \
+  --hotword "${hotword}" 
 

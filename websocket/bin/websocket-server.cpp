@@ -363,7 +363,7 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
       }
       if (jsonresult.contains("itn")) {
         msg_data->msg["itn"] = jsonresult["itn"];
-      }      }
+      }
       if (jsonresult.contains("vad_tail_sil")) {
           msg_data->msg["vad_tail_sil"] = jsonresult["vad_tail_sil"];
       }

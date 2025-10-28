@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 import os
+import sys
 import websockets, ssl
 import asyncio
 import argparse
@@ -97,6 +98,9 @@ if args.output_dir is not None:
         os.makedirs(args.output_dir)
 
 
+def clear_console():
+    print("\033c", end="")
+
 async def record_microphone():
     is_finished = False
     import pyaudio
@@ -119,7 +123,7 @@ async def record_microphone():
     fst_dict = {}
     hotword_msg = ""
     if args.hotword.strip() != "":
-        f_scp = open(args.hotword)
+        f_scp = open(args.hotword, encoding='utf-8')
         hot_lines = f_scp.readlines()
         for line in hot_lines:
             words = line.strip().split(" ")
@@ -161,7 +165,7 @@ async def record_from_scp(chunk_begin, chunk_size):
     fst_dict = {}
     hotword_msg = ""
     if args.hotword.strip() != "":
-        f_scp = open(args.hotword)
+        f_scp = open(args.hotword, encoding='utf-8')
         hot_lines = f_scp.readlines()
         for line in hot_lines:
             words = line.strip().split(" ")
@@ -295,7 +299,7 @@ async def message(id):
             if meg["mode"] == "online":
                 text_print += "{}".format(text)
                 text_print = text_print[-args.words_max_print:]
-                os.system('clear')
+                clear_console()
                 print("\rpid" + str(id) + ": " + text_print)
                 print(time_stamp_print)
             elif meg["mode"] == "offline":
@@ -316,7 +320,7 @@ async def message(id):
                     text_print = text_print_2pass_offline + "{}".format(text)
                     text_print_2pass_offline += "{}".format(text)
                 text_print = text_print[-args.words_max_print:]
-                os.system('clear')
+                clear_console()
                 print("\rpid" + str(id) + ": " + text_print)
                 print(time_stamp_print)
                 if meg["is_final"]:
