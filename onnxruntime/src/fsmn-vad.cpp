@@ -51,6 +51,11 @@ void FsmnVad::LoadConfigFromYaml(const char* filename){
     }
 }
 
+void FsmnVad::SetConfig(int vad_tail_sil, int vad_max_len){
+    vad_silence_duration_ = vad_tail_sil;
+    vad_max_len_ = vad_max_len;
+}
+
 void FsmnVad::ReadModel(const char* vad_model) {
     try {
         vad_session_ = std::make_shared<Ort::Session>(

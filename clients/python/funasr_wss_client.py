@@ -32,11 +32,15 @@ parser.add_argument("--chunk_interval",
 parser.add_argument("--hotword",
                     type=str,
                     default="",
-                    help="hotword, *.txt(one hotword perline) or hotwords seperate by space (could be: 语音识别 热词)")
+                    help="hotword file path, one hotword perline (e.g.:阿里巴巴 20)")
 parser.add_argument("--audio_in",
                     type=str,
                     default=None,
                     help="audio_in")
+parser.add_argument("--audio_fs",
+                    type=int,
+                    default=16000,
+                    help="audio_fs")
 parser.add_argument("--send_without_sleep",
                     action="store_true",
                     default=True,
@@ -111,13 +115,29 @@ async def record_microphone():
                     rate=RATE,
                     input=True,
                     frames_per_buffer=CHUNK)
+    # hotwords
+    fst_dict = {}
+    hotword_msg = ""
+    if args.hotword.strip() != "":
+        f_scp = open(args.hotword)
+        hot_lines = f_scp.readlines()
+        for line in hot_lines:
+            words = line.strip().split(" ")
+            if len(words) < 2:
+                print("Please checkout format of hotwords")
+                continue
+            try:
+                fst_dict[" ".join(words[:-1])] = int(words[-1])
+            except ValueError:
+                print("Please checkout format of hotwords")
+        hotword_msg=json.dumps(fst_dict)
 
     use_itn=True
     if args.use_itn == 0:
         use_itn=False
     
     message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval,
-                          "wav_name": "microphone", "is_speaking": True, "itn": use_itn,
+                          "wav_name": "microphone", "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
                           "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len,})
     #voices.put(message)
     await websocket.send(message)
@@ -137,21 +157,30 @@ async def record_from_scp(chunk_begin, chunk_size):
     else:
         wavs = [args.audio_in]
 
-    formatted_words = []
-    if args.hotword.endswith(".txt"):
+    # hotwords
+    fst_dict = {}
+    hotword_msg = ""
+    if args.hotword.strip() != "":
         f_scp = open(args.hotword)
         hot_lines = f_scp.readlines()
         for line in hot_lines:
-            line = line.strip()
-            formatted_words.append(line)
-        hotwords = ' '.join(formatted_words)
-    else:
-        hotwords = args.hotword
+            words = line.strip().split(" ")
+            if len(words) < 2:
+                print("Please checkout format of hotwords")
+                continue
+            try:
+                fst_dict[" ".join(words[:-1])] = int(words[-1])
+            except ValueError:
+                print("Please checkout format of hotwords")
+        hotword_msg=json.dumps(fst_dict)
+        print (hotword_msg)
 
+    sample_rate = args.audio_fs
+    wav_format = "pcm"
     use_itn=True
     if args.use_itn == 0:
         use_itn=False
-
+     
     if chunk_size > 0:
         wavs = wavs[chunk_begin:chunk_begin + chunk_size]
     for wav in wavs:
@@ -177,49 +206,41 @@ async def record_from_scp(chunk_begin, chunk_size):
                 # Requires the ffmpeg CLI and `ffmpeg-python` package to be installed.
                 audio_bytes, _ = (
                     ffmpeg.input(wav_path, threads=0)
-                    .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=16000)
+                    .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sample_rate)
                     .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
                 )
             except ffmpeg.Error as e:
                 audio_bytes = []
                 logging.info(f"Failed to load audio {wav_path}: {e.stderr.decode()}")
 
-        # stride = int(args.chunk_size/1000*16000*2)
-        stride = int(60 * args.chunk_size[1] / args.chunk_interval / 1000 * 16000 * 2)
+        stride = int(60 * args.chunk_size[1] / args.chunk_interval / 1000 * sample_rate * 2)
         chunk_num = (len(audio_bytes) - 1) // stride + 1
         # print(stride)
 
         # send first time
-        hotword_msg=hotwords
-        message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval,
-                          "wav_name": wav_name, "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
+        message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "audio_fs":sample_rate,
+                          "wav_name": wav_name, "wav_format": wav_format,  "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
                           "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, })
         #voices.put(message)
         await websocket.send(message)
         is_speaking = True
         
-        if len(audio_bytes) == 0:
-            message = json.dumps({"is_speaking": False})
+        for i in range(chunk_num):
+
+            beg = i * stride
+            data = audio_bytes[beg:beg + stride]
+            message = data
             #voices.put(message)
             await websocket.send(message)
-        else:
-            
-            for i in range(chunk_num):
-
-                beg = i * stride
-                data = audio_bytes[beg:beg + stride]
-                message = data
+            if i == chunk_num - 1:
+                is_speaking = False
+                message = json.dumps({"is_speaking": is_speaking})
                 #voices.put(message)
                 await websocket.send(message)
-                if i == chunk_num - 1:
-                    is_speaking = False
-                    message = json.dumps({"is_speaking": is_speaking})
-                    #voices.put(message)
-                    await websocket.send(message)
-    
-                sleep_duration = 0.001 if args.mode == "offline" else 60 * args.chunk_size[1] / args.chunk_interval / 1000
-                
-                await asyncio.sleep(sleep_duration)
+ 
+            sleep_duration = 0.001 if args.mode == "offline" else 60 * args.chunk_size[1] / args.chunk_interval / 1000
+            
+            await asyncio.sleep(sleep_duration)
     
     if not args.mode=="offline":
         await asyncio.sleep(2)

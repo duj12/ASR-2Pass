@@ -194,6 +194,12 @@ void FsmnVadOnline::InitOnline(std::shared_ptr<Ort::Session> &vad_session,
     audio_handle = make_unique<Audio>(vad_sample_rate,1);
 }
 
+void FsmnVadOnline::SetConfig(int vad_tail_sil, int vad_max_len){
+    vad_silence_duration_ = vad_tail_sil;
+    vad_max_len_ = vad_max_len;
+}
+
+
 FsmnVadOnline::~FsmnVadOnline() {
 }
 

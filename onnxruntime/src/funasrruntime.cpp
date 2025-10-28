@@ -207,12 +207,16 @@
 	// APIs for Offline-stream Infer
 	_FUNASRAPI FUNASR_RESULT FunOfflineInferBuffer(FUNASR_HANDLE handle, const char* sz_buf, int n_len, 
 												   FUNASR_MODE mode, QM_CALLBACK fn_callback, const std::vector<std::vector<float>> &hw_emb, 
-												   int sampling_rate, std::string wav_format, bool itn, FUNASR_DEC_HANDLE dec_handle,
+												   int sampling_rate, std::string wav_format, bool itn, int vad_tail_sil, int vad_max_len,
+
+												   FUNASR_DEC_HANDLE dec_handle,
 												   std::string svs_lang, bool svs_itn)
 	{
 		funasr::OfflineStream* offline_stream = (funasr::OfflineStream*)handle;
 		if (!offline_stream)
 			return nullptr;
+		funasr::VadModel* vad_handle = (offline_stream->vad_handle).get();
+		vad_handle->SetConfig(vad_tail_sil, vad_max_len);
 
 		funasr::Audio audio(offline_stream->asr_handle->GetAsrSampleRate(),1);
 		try{
@@ -333,12 +337,15 @@
 	}
 
 	_FUNASRAPI FUNASR_RESULT FunOfflineInfer(FUNASR_HANDLE handle, const char* sz_filename, FUNASR_MODE mode, QM_CALLBACK fn_callback, 
-											 const std::vector<std::vector<float>> &hw_emb, int sampling_rate, bool itn, FUNASR_DEC_HANDLE dec_handle)
+											 const std::vector<std::vector<float>> &hw_emb, int sampling_rate, bool itn, int vad_tail_sil, int vad_max_len,
+											 FUNASR_DEC_HANDLE dec_handle)
 	{
 		funasr::OfflineStream* offline_stream = (funasr::OfflineStream*)handle;
 		if (!offline_stream)
 			return nullptr;
-		
+		funasr::VadModel* vad_handle = (offline_stream->vad_handle).get();
+		vad_handle->SetConfig(vad_tail_sil, vad_max_len);
+
 		funasr::Audio audio((offline_stream->asr_handle)->GetAsrSampleRate(),1);
 		try{
 			if(funasr::is_target_file(sz_filename, "wav")){
@@ -484,7 +491,8 @@
 	_FUNASRAPI FUNASR_RESULT FunTpassInferBuffer(FUNASR_HANDLE handle, FUNASR_HANDLE online_handle, const char* sz_buf, 
 												 int n_len, std::vector<std::vector<std::string>> &punc_cache, bool input_finished, 
 												 int sampling_rate, std::string wav_format, ASR_TYPE mode, 
-												 const std::vector<std::vector<float>> &hw_emb, bool itn, FUNASR_DEC_HANDLE dec_handle,
+												 const std::vector<std::vector<float>> &hw_emb, bool itn, int vad_tail_sil, int vad_max_len,
+												 FUNASR_DEC_HANDLE dec_handle,
 												 std::string svs_lang, bool svs_itn)
 	{
 		funasr::TpassStream* tpass_stream = (funasr::TpassStream*)handle;
@@ -495,6 +503,7 @@
 		funasr::VadModel* vad_online_handle = (tpass_online_stream->vad_online_handle).get();
 		if (!vad_online_handle)
 			return nullptr;
+		vad_online_handle->SetConfig(vad_tail_sil, vad_max_len);
 
 		funasr::Audio* audio = ((funasr::FsmnVadOnline*)vad_online_handle)->audio_handle.get();
 

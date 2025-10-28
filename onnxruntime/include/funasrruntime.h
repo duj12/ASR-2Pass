@@ -101,12 +101,16 @@ _FUNASRAPI void         	FunOfflineReset(FUNASR_HANDLE handle, FUNASR_DEC_HANDLE
 // buffer
 _FUNASRAPI FUNASR_RESULT	FunOfflineInferBuffer(FUNASR_HANDLE handle, const char* sz_buf, int n_len, 
 												  FUNASR_MODE mode, QM_CALLBACK fn_callback, const std::vector<std::vector<float>> &hw_emb, 
-												  int sampling_rate=16000, std::string wav_format="pcm", bool itn=true, FUNASR_DEC_HANDLE dec_handle=nullptr,
+												  int sampling_rate=16000, std::string wav_format="pcm", bool itn=true, 
+												  int vad_tail_sil=800, int vad_max_len=60000,
+												  FUNASR_DEC_HANDLE dec_handle=nullptr,
 												  std::string svs_lang="auto", bool svs_itn=true);
 // file, support wav & pcm
 _FUNASRAPI FUNASR_RESULT	FunOfflineInfer(FUNASR_HANDLE handle, const char* sz_filename, FUNASR_MODE mode, 
 											QM_CALLBACK fn_callback, const std::vector<std::vector<float>> &hw_emb, 
-											int sampling_rate=16000, bool itn=true, FUNASR_DEC_HANDLE dec_handle=nullptr);
+											int sampling_rate=16000, bool itn=true, 
+											int vad_tail_sil=800, int vad_max_len=60000,
+											FUNASR_DEC_HANDLE dec_handle=nullptr);
 //#if !defined(__APPLE__)
 _FUNASRAPI const std::vector<std::vector<float>> CompileHotwordEmbedding(FUNASR_HANDLE handle, std::string &hotwords, ASR_TYPE mode=ASR_OFFLINE);
 //#endif
@@ -120,7 +124,9 @@ _FUNASRAPI FUNASR_HANDLE    FunTpassOnlineInit(FUNASR_HANDLE tpass_handle, std::
 _FUNASRAPI FUNASR_RESULT	FunTpassInferBuffer(FUNASR_HANDLE handle, FUNASR_HANDLE online_handle, const char* sz_buf, 
 												int n_len, std::vector<std::vector<std::string>> &punc_cache, bool input_finished=true, 
 												int sampling_rate=16000, std::string wav_format="pcm", ASR_TYPE mode=ASR_TWO_PASS, 
-												const std::vector<std::vector<float>> &hw_emb={{0.0}}, bool itn=true, FUNASR_DEC_HANDLE dec_handle=nullptr,
+												const std::vector<std::vector<float>> &hw_emb={{0.0}}, bool itn=true, 
+												int vad_tail_sil=800, int vad_max_len=60000,
+												FUNASR_DEC_HANDLE dec_handle=nullptr,
 												std::string svs_lang="auto", bool svs_itn=true);
 _FUNASRAPI void				FunTpassUninit(FUNASR_HANDLE handle);
 _FUNASRAPI void				FunTpassOnlineUninit(FUNASR_HANDLE handle);

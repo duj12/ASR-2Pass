@@ -22,6 +22,7 @@ public:
     void ExtractFeats(float sample_rate, vector<vector<float>> &vad_feats, vector<float> &waves, bool input_finished);
     void Reset();
     int GetVadSampleRate() { return vad_sample_rate_; };
+    void SetConfig(int vad_tail_sil, int vad_max_len);
 
     // 2pass
     std::unique_ptr<Audio> audio_handle = nullptr;

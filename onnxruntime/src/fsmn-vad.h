@@ -30,7 +30,8 @@ public:
     void Reset();
 
     int GetVadSampleRate() { return vad_sample_rate_; };
-    
+    void SetConfig(int vad_tail_sil, int vad_max_len);
+
     std::shared_ptr<Ort::Session> vad_session_ = nullptr;
     Ort::Env env_;
     Ort::SessionOptions session_options_;
