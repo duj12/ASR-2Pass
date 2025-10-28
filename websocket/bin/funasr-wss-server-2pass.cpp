@@ -73,7 +73,7 @@ int main(int argc, char* argv[]) {
         "model_quant.onnx, vad.yaml, vad.mvn",
         false, "damo/speech_fsmn_vad_zh-cn-16k-common-onnx", "string");
     TCLAP::ValueArg<std::string> vad_revision(
-        "", "vad-revision", "VAD model revision", false, "v2.0.4", "string");
+        "", "vad-revision", "VAD model revision", false, "v2.0.6", "string");
     TCLAP::ValueArg<std::string> vad_quant(
         "", VAD_QUANT,
         "true (Default), load the model of model_quant.onnx in vad_dir. If set "

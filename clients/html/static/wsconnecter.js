@@ -71,20 +71,28 @@ function WebSocketConnectMethod( config ) { //定义socket连接方法类
 			"wav_name":  "h5",
 			"is_speaking":  true,
 			"chunk_interval":10,
+			"itn":getUseITN(),
 			"mode":getAsrMode(),
 			
 		};
 		if(isfilemode)
 		{
 			request.wav_format=file_ext;
+			if(file_ext=="wav")
+			{
+				request.wav_format="PCM";
+				request.audio_fs=file_sample_rate;
+			}
 		}
+		
 		var hotwords=getHotwords();
-		if(hotwords.length>0)
+ 
+		if(hotwords!=null  )
 		{
 			request.hotwords=hotwords;
 		}
-		console.log(request);
-		speechSokt.send( JSON.stringify(request) );
+		console.log(JSON.stringify(request));
+		speechSokt.send(JSON.stringify(request));
 		console.log("连接成功");
 		stateHandle(0);
  

@@ -34,7 +34,7 @@ b.非流式ASR服务，适用于长音频转写。整段音频输入，一次输
 
 2, 启动h5服务（如果你想在浏览器上使用ASR）
 ```shell
-cd ../html5
+cd ../html
 # you should prepare a python env by yourself.
 python h5Server.py  &
 # the ip and port should be kept and used in the following step. the port is default: 1337
