@@ -54,7 +54,7 @@ void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wa
     // warm up
     for (size_t i = 0; i < 1; i++)
     {
-        FUNASR_RESULT result=FunOfflineInfer(asr_handle, wav_list[0].c_str(), RASR_NONE, nullptr, hotwords_embedding, audio_fs, true, decoder_handle);
+        FUNASR_RESULT result=FunOfflineInfer(asr_handle, wav_list[0].c_str(), RASR_NONE, nullptr, hotwords_embedding, audio_fs, true, 250, 20000, decoder_handle);
         if(result){
             FunASRFreeResult(result);
         }
@@ -68,7 +68,7 @@ void runReg(FUNASR_HANDLE asr_handle, vector<string> wav_list, vector<string> wa
         }
 
         gettimeofday(&start, nullptr);
-        FUNASR_RESULT result=FunOfflineInfer(asr_handle, wav_list[i].c_str(), RASR_NONE, nullptr, hotwords_embedding, audio_fs, true, decoder_handle);
+        FUNASR_RESULT result=FunOfflineInfer(asr_handle, wav_list[i].c_str(), RASR_NONE, nullptr, hotwords_embedding, audio_fs, true, 250, 20000, decoder_handle);
 
         gettimeofday(&end, nullptr);
         seconds = (end.tv_sec - start.tv_sec);

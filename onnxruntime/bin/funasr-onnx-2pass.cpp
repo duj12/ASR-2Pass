@@ -217,7 +217,7 @@ int main(int argc, char** argv)
             gettimeofday(&start, nullptr);
             FUNASR_RESULT result = FunTpassInferBuffer(tpass_handle, tpass_online_handle, 
                 speech_buff+sample_offset, step, punc_cache, is_final, sampling_rate_, "pcm", 
-                (ASR_TYPE)asr_mode_, hotwords_embedding, true, decoder_handle);
+                (ASR_TYPE)asr_mode_, hotwords_embedding, true, 250, 20000, decoder_handle);
             gettimeofday(&end, nullptr);
             seconds = (end.tv_sec - start.tv_sec);
             taking_micros += ((seconds * 1000000) + end.tv_usec) - (start.tv_usec);

@@ -22,10 +22,10 @@ endif()
 
 # json
 include(FetchContent)
-if(NOT EXISTS ${PROJECT_SOURCE_DIR}/third_party/json/ChangeLog.md )
+if(NOT EXISTS ${PROJECT_SOURCE_DIR}/../websocket/third_party/json/ChangeLog.md )
 FetchContent_Declare(json
   URL   https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.tar.gz
-SOURCE_DIR ${PROJECT_SOURCE_DIR}/third_party/json
+SOURCE_DIR ${PROJECT_SOURCE_DIR}/../websocket/third_party/json
 )
 
 FetchContent_MakeAvailable(json)
@@ -49,7 +49,7 @@ include_directories(${PROJECT_SOURCE_DIR}/third_party/yaml-cpp/include)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/jieba/include)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/jieba/include/limonp/include)
 include_directories(${PROJECT_SOURCE_DIR}/third_party/kaldi)
-include_directories(${PROJECT_SOURCE_DIR}/third_party/json/include)
+include_directories(${PROJECT_SOURCE_DIR}/../websocket/third_party/json/include)
 
 if(GPU)
     add_definitions(-DUSE_GPU)
