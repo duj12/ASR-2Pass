@@ -22,11 +22,12 @@ class Model {
     virtual void InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, 
       const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num){};
     virtual void InitLm(const std::string &lm_file, const std::string &lm_config, const std::string &lex_file){};
+    virtual void InitLm(const std::string &lm_file, const std::string &lm_config, const std::string &lex_file, const std::string &lm_units_path){};
     virtual void InitFstDecoder(){};
     virtual std::string Forward(float *din, int len, bool input_finished, const std::vector<std::vector<float>> &hw_emb={{0.0}}, void* wfst_decoder=nullptr){return "";};
     virtual std::vector<std::string> Forward(float** din, int* len, bool input_finished, const std::vector<std::vector<float>> &hw_emb={{0.0}}, void* wfst_decoder=nullptr, int batch_in=1)
       {return std::vector<string>();};
-    virtual std::vector<std::string> Forward(float** din, int* len, bool input_finished, std::string svs_lang="auto", bool svs_itn=false, int batch_in=1)
+    virtual std::vector<std::string> Forward(float** din, int* len, bool input_finished, std::string svs_lang="auto", bool svs_itn=false, void* decoder_handle=nullptr, int batch_in=1)
       {return std::vector<string>();};
     virtual std::string Rescoring() = 0;
     virtual void InitHwCompiler(const std::string &hw_model, int thread_num){};

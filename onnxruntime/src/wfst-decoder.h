@@ -70,6 +70,12 @@ class WfstDecoder {
   string FinalizeDecode(bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
   void LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_map);
   void UnloadHwsRes();
+   
+  std::string CtcSearch(std::vector<std::vector<float>> ctc_logp);
+  std::string CtcFinalizeDecode();
+  void ConvertToInputs(const std::vector<int>& alignment,
+                       std::vector<int>* input,
+                       std::vector<int>* time = nullptr);
 
  private:
   Vocab* vocab_ = nullptr;
@@ -81,6 +87,14 @@ class WfstDecoder {
   fst::Fst<fst::StdArc>* lm_ = nullptr;
   std::shared_ptr<kaldi::LatticeFasterOnlineDecoder> decoder_ = nullptr;
   std::shared_ptr<BiasLm> bias_lm_ = nullptr;
+
+  float blank_skip_thresh = 0.98;
+  bool is_last_frame_blank_ = false;
+  int last_best_ = -1;
+  int num_frames_ = 0;
+  std::vector<float> last_frame_prob_;
+  std::vector<int> decoded_frames_mapping_;
+
 };
 } // namespace funasr
 #endif // WFST_DECODER_

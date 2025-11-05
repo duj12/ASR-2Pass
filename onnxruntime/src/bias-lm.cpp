@@ -123,7 +123,16 @@ void BiasLm::BuildGraph(std::vector<std::vector<int>> &split_id_vec,
 }
 
 float BiasLm::BiasLmScore(const StateId &his_state, const Label &lab, Label &new_state) {
-  if (lab < 1 || lab > phn_set_.Size() || !graph_) { return VALUE_ZERO; }
+  // LOG(INFO) << "lab=" << lab << " his_state=" << his_state << " graph_states=" << graph_->NumStates();
+  //if (lab < 1 || lab > phn_set_.Size() || !graph_) { return VALUE_ZERO; }
+  if (lab <= 0 || lab >= phn_set_.Size() || !graph_) { 
+    return VALUE_ZERO; 
+  }
+
+  if (lab == phn_set_.GetBlkPhnId()) { 
+      return VALUE_ZERO; 
+  }
+
   StateId cur_state = his_state;
   StateId next_state;
   float score = VALUE_ZERO;
@@ -140,12 +149,29 @@ float BiasLm::BiasLmScore(const StateId &his_state, const Label &lab, Label &new
       cur_state = next_state;
       break;
     } else {
+      // ArcIterator aiter(*graph_, cur_state);
+      // 安全性检查：确保状态有效
+      if (cur_state >= graph_->NumStates()) {
+        break;
+      }
+      
       ArcIterator aiter(*graph_, cur_state);
+      // 关键修复：检查迭代器是否有效
+      if (aiter.Done()) {
+        break;
+      }
       const Arc& arc = aiter.Value();
       if (arc.ilabel == 0) {
         score += arc.weight.Value();
         next_state = arc.nextstate;
+         // 防止无限循环
+        if (next_state == cur_state) {
+          break;
+        }
         cur_state = next_state;
+      }
+      else{
+        break;
       }
       if (prev_state == ROOT_NODE && cur_state == ROOT_NODE) {
         break;

@@ -91,6 +91,116 @@ string WfstDecoder::FinalizeDecode(bool is_stamp, std::vector<float> us_alphas, 
   return result;
 }
 
+
+string WfstDecoder::CtcSearch(std::vector<std::vector<float>> logp_vec) {
+  if (logp_vec.size() < 1){
+    return "";
+  }
+  int blk_phn_id = phone_set_->GetBlkPhnId();
+  
+  std::vector<int> greedy_token;
+  // Step through each frame
+  for (int i = 0; i < logp_vec.size(); i++) {
+    //float blank_score = std::exp(logp_vec[i][blk_phn_id]);
+    float blank_score = 0.0;   // ctc_output_logit is not strictly log-softmax prob
+    if (blank_score > blank_skip_thresh) {
+      // 跳过高概率blank帧
+      is_last_frame_blank_ = true;
+      last_frame_prob_ = logp_vec[i];
+    } else {
+      // 当前帧的最佳token
+      int cur_best = std::max_element(logp_vec[i].begin(), logp_vec[i].end()) - logp_vec[i].begin();
+      greedy_token.push_back(cur_best);
+      // 如果上一个是blank且当前和上一次相同token，则补一帧blank
+      if (cur_best != blk_phn_id && is_last_frame_blank_ && cur_best == last_best_) {
+        decodable_.AcceptLoglikes(last_frame_prob_);
+        decoder_->AdvanceDecoding(&decodable_, 1);
+        decoded_frames_mapping_.push_back(num_frames_ - 1);
+      }
+
+      last_best_ = cur_best;
+      cur_frame_++;
+      decodable_.AcceptLoglikes(logp_vec[i]);
+      decoder_->AdvanceDecoding(&decodable_, 1);
+      cur_token_++;
+      decoded_frames_mapping_.push_back(num_frames_);
+      is_last_frame_blank_ = false;
+    }
+    num_frames_++;
+  }
+
+  // 输出最优路径
+  std::string result;
+  if (!decoded_frames_mapping_.empty()) {
+    kaldi::Lattice lat;
+    decoder_->GetBestPath(&lat, false);
+    std::vector<int> alignment, words;
+    kaldi::LatticeWeight weight;
+    fst::GetLinearSymbolSequence(lat, &alignment, &words, &weight);
+
+    std::vector<int> inputs, times;
+    ConvertToInputs(alignment, &inputs, &times);
+    result = vocab_->Vector2StringV2(words);
+  }
+
+  return result;
+}
+
+string WfstDecoder::CtcFinalizeDecode() {
+  decodable_.SetFinished();
+  decoder_->FinalizeDecoding();
+
+  std::string result;
+  if (decoded_frames_mapping_.empty()) {
+    return result;
+  }
+
+  std::vector<kaldi::Lattice> nbest_lats;
+  int nbest = 1;
+  if (nbest == 1) {
+    kaldi::Lattice lat;
+    decoder_->GetBestPath(&lat, true);
+    nbest_lats.push_back(std::move(lat));
+  } else {
+    kaldi::CompactLattice clat;
+    decoder_->GetLattice(&clat, true);
+    kaldi::Lattice lat, nbest_lat;
+    fst::ConvertLattice(clat, &lat);
+    fst::ShortestPath(lat, &nbest_lat, nbest);
+    fst::ConvertNbestToVector(nbest_lat, &nbest_lats);
+  }
+
+  std::vector<int> alignment, words;
+  kaldi::LatticeWeight weight;
+  fst::GetLinearSymbolSequence(nbest_lats[0], &alignment, &words, &weight);
+  ConvertToInputs(alignment, &alignment);
+
+  result = vocab_->Vector2StringV2(words);
+  return result;
+}
+
+void WfstDecoder::ConvertToInputs(const std::vector<int>& alignment,
+                                  std::vector<int>* input,
+                                  std::vector<int>* time) {
+  input->clear();
+  if (time != nullptr) time->clear();
+
+  int blk_phn_id = phone_set_->GetBlkPhnId();
+
+  for (size_t cur = 0; cur < alignment.size(); ++cur) {
+    int sym = alignment[cur];
+    // 忽略 blank
+    if (sym == blk_phn_id) continue;
+    // 跳过重复标签
+    if (cur > 0 && alignment[cur] == alignment[cur - 1]) continue;
+
+    input->push_back(sym);
+    if (time != nullptr && cur < decoded_frames_mapping_.size()) {
+      time->push_back(decoded_frames_mapping_[cur]);
+    }
+  }
+}
+
 void WfstDecoder::LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_map) {
   try {
     if (!hws_map.empty()) {

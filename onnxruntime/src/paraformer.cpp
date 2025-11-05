@@ -151,13 +151,17 @@ void Paraformer::InitAsr(const std::string &am_model, const std::string &en_mode
 
 void Paraformer::InitLm(const std::string &lm_file, 
                         const std::string &lm_cfg_file, 
-                        const std::string &lex_file) {
+                        const std::string &lex_file,
+                        const std::string &lm_units_file) {
     try {
         lm_ = std::shared_ptr<fst::Fst<fst::StdArc>>(
             fst::Fst<fst::StdArc>::Read(lm_file));
         if (lm_){
             lm_vocab = new Vocab(lm_cfg_file.c_str(), lex_file.c_str());
             LOG(INFO) << "Successfully load lm file " << lm_file;
+            if (lm_units_file.size() > 0){
+                phone_set_ = new PhoneSet(lm_units_file.c_str());
+            }
         }else{
             LOG(ERROR) << "Failed to load lm file " << lm_file;
         }
@@ -655,21 +659,6 @@ std::vector<std::vector<float>> Paraformer::CompileHotwordEmbedding(std::string 
     }
     //PrintMat(result, "clas_embedding_output");
     return result;
-}
-
-Vocab* Paraformer::GetVocab()
-{
-    return vocab;
-}
-
-Vocab* Paraformer::GetLmVocab()
-{
-    return lm_vocab;
-}
-
-PhoneSet* Paraformer::GetPhoneSet()
-{
-    return phone_set_;
 }
 
 string Paraformer::Rescoring()

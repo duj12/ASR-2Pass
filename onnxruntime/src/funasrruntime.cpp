@@ -263,7 +263,7 @@
 			}
 			vector<string> msg_batch;
 			if(offline_stream->GetModelType() == MODEL_SVS){
-				msg_batch = (offline_stream->asr_handle)->Forward(buff, len, true, svs_lang, svs_itn, batch_in);
+				msg_batch = (offline_stream->asr_handle)->Forward(buff, len, true, svs_lang, svs_itn, dec_handle, batch_in);
 			}else{
 				msg_batch = (offline_stream->asr_handle)->Forward(buff, len, true, hw_emb, dec_handle, batch_in);
 			}
@@ -581,7 +581,7 @@
 			len[0] = frame->len;
 			vector<string> msgs;
 			if(tpass_stream->GetModelType() == MODEL_SVS){
-				msgs = (tpass_stream->asr_handle)->Forward(buff, len, true, svs_lang, svs_itn, 1);
+				msgs = (tpass_stream->asr_handle)->Forward(buff, len, true, svs_lang, svs_itn, dec_handle, 1);
 			}else{
 				msgs = (tpass_stream->asr_handle)->Forward(buff, len, true, hw_emb, dec_handle, 1);
 			}
@@ -838,19 +838,19 @@
 		funasr::WfstDecoder* mm = nullptr;
 		if (asr_type == ASR_OFFLINE) {
 			funasr::OfflineStream* offline_stream = (funasr::OfflineStream*)handle;
-			auto paraformer = dynamic_cast<funasr::Paraformer*>(offline_stream->asr_handle.get());
+			auto paraformer = dynamic_cast<funasr::WfstDecodable*>(offline_stream->asr_handle.get());
 			if(paraformer !=nullptr){
-				if (paraformer->lm_){
-					mm = new funasr::WfstDecoder(paraformer->lm_.get(),
+				if (paraformer->GetLm()){
+					mm = new funasr::WfstDecoder(paraformer->GetLm().get(),
 						paraformer->GetPhoneSet(), paraformer->GetLmVocab(), glob_beam, lat_beam, am_scale);
 				}
 				return mm;
 			}
 			#ifdef USE_GPU
-			auto paraformer_torch = dynamic_cast<funasr::ParaformerTorch*>(offline_stream->asr_handle.get());
+			auto paraformer_torch = dynamic_cast<funasr::WfstDecodable*>(offline_stream->asr_handle.get());
 			if(paraformer_torch !=nullptr){
-				if (paraformer_torch->lm_){
-					mm = new funasr::WfstDecoder(paraformer_torch->lm_.get(),
+				if (paraformer_torch->GetLm()){
+					mm = new funasr::WfstDecoder(paraformer_torch->GetLm().get(),
 						paraformer_torch->GetPhoneSet(), paraformer_torch->GetLmVocab(), glob_beam, lat_beam, am_scale);
 				}
 				return mm;
@@ -859,19 +859,19 @@
 
 		} else if (asr_type == ASR_TWO_PASS){
 			funasr::TpassStream* tpass_stream = (funasr::TpassStream*)handle;
-			auto paraformer = dynamic_cast<funasr::Paraformer*>(tpass_stream->asr_handle.get());
+			auto paraformer = dynamic_cast<funasr::WfstDecodable*>(tpass_stream->asr_handle.get());
 			if(paraformer !=nullptr){
-				if (paraformer->lm_){
-					mm = new funasr::WfstDecoder(paraformer->lm_.get(),
+				if (paraformer->GetLm()){
+					mm = new funasr::WfstDecoder(paraformer->GetLm().get(),
 						paraformer->GetPhoneSet(), paraformer->GetLmVocab(), glob_beam, lat_beam, am_scale);
 				}
 				return mm;
 			}
 			#ifdef USE_GPU
-			auto paraformer_torch = dynamic_cast<funasr::ParaformerTorch*>(tpass_stream->asr_handle.get());
+			auto paraformer_torch = dynamic_cast<funasr::WfstDecodable*>(tpass_stream->asr_handle.get());
 			if(paraformer_torch !=nullptr){
-				if (paraformer_torch->lm_){
-					mm = new funasr::WfstDecoder(paraformer_torch->lm_.get(),
+				if (paraformer_torch->GetLm()){
+					mm = new funasr::WfstDecoder(paraformer_torch->GetLm().get(),
 						paraformer_torch->GetPhoneSet(), paraformer_torch->GetLmVocab(), glob_beam, lat_beam, am_scale);
 				}
 				return mm;

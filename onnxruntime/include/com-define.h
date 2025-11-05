@@ -84,6 +84,7 @@ namespace funasr {
 
 #define LM_FST_RES "TLG.fst"
 #define LEX_PATH "lexicon.txt"
+#define LM_UNITS_PATH "units.json"  // lm units path, tokens.json add <blank> for SenseVoice
 
 // vad
 #ifndef VAD_SILENCE_DURATION

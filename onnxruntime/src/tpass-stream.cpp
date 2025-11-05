@@ -79,15 +79,19 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
     
     // Lm resource
     if (model_path.find(LM_DIR) != model_path.end() && model_path.at(LM_DIR) != "") {
-        string fst_path, lm_config_path, lex_path;
+        string fst_path, lm_config_path, lex_path, lm_units_path;
         fst_path = PathAppend(model_path.at(LM_DIR), LM_FST_RES);
         lm_config_path = PathAppend(model_path.at(LM_DIR), LM_CONFIG_NAME);
         lex_path = PathAppend(model_path.at(LM_DIR), LEX_PATH);
+        lm_units_path = PathAppend(model_path.at(LM_DIR), LM_UNITS_PATH);
         if (access(lex_path.c_str(), F_OK) != 0 )
         {
             LOG(ERROR) << "Lexicon.txt file is not exist, please use the latest version. Skip load LM model.";
         }else{
-            asr_handle->InitLm(fst_path, lm_config_path, lex_path);
+            if (access(lm_units_path.c_str(), F_OK) != 0 )
+                asr_handle->InitLm(fst_path, lm_config_path, lex_path);  // for Paraformer, AM units and LM units is same
+            else 
+                asr_handle->InitLm(fst_path, lm_config_path, lex_path, lm_units_path);
         }
     }
 

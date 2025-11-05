@@ -615,21 +615,6 @@ std::vector<std::vector<float>> ParaformerTorch::CompileHotwordEmbedding(std::st
     return result;
 }
 
-Vocab* ParaformerTorch::GetVocab()
-{
-    return vocab;
-}
-
-Vocab* ParaformerTorch::GetLmVocab()
-{
-    return lm_vocab;
-}
-
-PhoneSet* ParaformerTorch::GetPhoneSet()
-{
-    return phone_set_;
-}
-
 string ParaformerTorch::Rescoring()
 {
     LOG(ERROR)<<"Not Imp!!!!!!";

@@ -13,10 +13,11 @@
 #include "fst/symbol-table.h"
 #include "bias-lm.h"
 #include "phone-set.h"
+#include "wfst-decodable.h"
 
 namespace funasr {
 
-    class ParaformerTorch : public Model {
+    class ParaformerTorch : public Model, public WfstDecodable {
     /**
      * Author: Speech Lab of DAMO Academy, Alibaba Group
      * Paraformer: Fast and Accurate Parallel Transformer for Non-autoregressive End-to-End Speech Recognition
@@ -65,9 +66,13 @@ namespace funasr {
         string BeamSearch(WfstDecoder* &wfst_decoder, float* in, int n_len, int64_t token_nums);
         string FinalizeDecode(WfstDecoder* &wfst_decoder,
                           bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
-        Vocab* GetVocab();
-        Vocab* GetLmVocab();
-        PhoneSet* GetPhoneSet();
+        // Vocab* GetVocab();
+        // Vocab* GetLmVocab();
+        // PhoneSet* GetPhoneSet();
+        std::shared_ptr<fst::Fst<fst::StdArc>> GetLm() const override { return lm_; }
+        Vocab* GetVocab() { return vocab; }
+        PhoneSet* GetPhoneSet() const override { return phone_set_; }
+        Vocab* GetLmVocab() const override { return lm_vocab; }
 		
         knf::FbankOptions fbank_opts_;
         vector<float> means_list_;

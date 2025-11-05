@@ -6,10 +6,11 @@
 
 #include "precomp.h"
 #include "phone-set.h"
+#include "wfst-decodable.h"
 
 namespace funasr {
 
-    class SenseVoiceSmall : public Model {
+    class SenseVoiceSmall : public Model, public WfstDecodable {
     private:
         Vocab* vocab = nullptr;
         Vocab* online_vocab = nullptr;
@@ -45,7 +46,8 @@ namespace funasr {
         std::vector<std::vector<float>> CompileHotwordEmbedding(std::string &hotwords);
         void Reset();
         void FbankKaldi(float sample_rate, const float* waves, int len, std::vector<std::vector<float>> &asr_feats);
-        std::vector<std::string> Forward(float** din, int* len, bool input_finished=true, std::string svs_lang="auto", bool svs_itn=true, int batch_in=1);
+        std::vector<std::string> Forward(float** din, int* len, bool input_finished=true, std::string svs_lang="auto",
+                                         bool svs_itn=true, void* decoder_handle=nullptr, int batch_in=1);
         string CTCSearch( float * in, std::vector<int32_t> paraformer_length, std::vector<int64_t> outputShape);
         string GreedySearch( float* in, int n_len, int64_t token_nums,
                              bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
@@ -61,8 +63,16 @@ namespace funasr {
         //                   bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
         // Vocab* GetVocab();
         // Vocab* GetLmVocab();
-        // PhoneSet* GetPhoneSet();
-		
+        // PhoneSet* GetPhoneSet();        
+        void InitLm(const std::string &lm_file, const std::string &lm_cfg_file, const std::string &lex_file, const std::string &token_file);
+
+        string BeamSearch(WfstDecoder* &wfst_decoder, float* in, int n_len, int64_t token_nums);
+        string FinalizeDecode(WfstDecoder* &wfst_decoder);
+        std::shared_ptr<fst::Fst<fst::StdArc>> GetLm() const override { return lm_; }
+        Vocab* GetVocab() { return vocab; }
+        PhoneSet* GetPhoneSet() const override { return phone_set_; }
+        Vocab* GetLmVocab() const override { return lm_vocab; }
+
         knf::FbankOptions fbank_opts_;
         vector<float> means_list_;
         vector<float> vars_list_;
