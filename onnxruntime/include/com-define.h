@@ -32,6 +32,7 @@ namespace funasr {
 #define WAV_SCP "wav-scp"
 #define TXT_PATH "txt-path"
 #define THREAD_NUM "thread-num"
+#define WARMUP_NUM "warmup-num"
 #define PORT_ID "port-id"
 #define HOTWORD_SEP " "
 #define AUDIO_FS "audio-fs"

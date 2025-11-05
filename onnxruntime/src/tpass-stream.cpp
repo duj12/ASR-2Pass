@@ -89,7 +89,7 @@ TpassStream::TpassStream(std::map<std::string, std::string>& model_path, int thr
             LOG(ERROR) << "Lexicon.txt file is not exist, please use the latest version. Skip load LM model.";
         }else{
             if (access(lm_units_path.c_str(), F_OK) != 0 )
-                asr_handle->InitLm(fst_path, lm_config_path, lex_path);  // for Paraformer, AM units and LM units is same
+                asr_handle->InitLm(fst_path, lm_config_path, lex_path, "");  // for Paraformer, AM units and LM units is same
             else 
                 asr_handle->InitLm(fst_path, lm_config_path, lex_path, lm_units_path);
         }

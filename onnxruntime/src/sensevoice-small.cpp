@@ -360,15 +360,19 @@ string SenseVoiceSmall::CTCSearch(float * in, std::vector<int32_t> paraformer_le
             text += word;
         }
     }
+
     if(str_itn == "<|withitn|>"){
-        if(str_lang == "<|zh|>"){
-            text += "。";
-        }else{
-            text += ".";
+        if(str_lang == "<|en|>"){
+            text += " "; // for english, we add a space at the end
         }
     }
-
-    return str_lang + str_emo + str_event + " " + text;
+    else{
+        // without itn, no punctuation, we add a space at the end
+        text += " ";
+    }
+    
+    return text;   
+    // return str_lang + str_emo + str_event + " " + text;
 }
 
 inline void LogSoftmaxInplace(std::vector<float>& logits) {

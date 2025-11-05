@@ -45,7 +45,7 @@ void GetValue(TCLAP::ValueArg<std::string>& value_arg, string key, std::map<std:
 
 void runReg(FUNASR_HANDLE tpass_handle, std::vector<int> chunk_size, vector<string> wav_list, vector<string> wav_ids, int audio_fs,
             float* total_length, long* total_time, int core_id, ASR_TYPE asr_mode_, string nn_hotwords_,
-            float glob_beam, float lat_beam, float am_scale, int inc_bias, unordered_map<string, int> hws_map) {
+            float glob_beam, float lat_beam, float am_scale, int inc_bias, unordered_map<string, int> hws_map, int warmup_num) {
     
     struct timeval start, end;
     long seconds = 0;
@@ -62,7 +62,7 @@ void runReg(FUNASR_HANDLE tpass_handle, std::vector<int> chunk_size, vector<stri
     FUNASR_HANDLE tpass_online_handle=FunTpassOnlineInit(tpass_handle, chunk_size);
 
     // warm up
-    for (size_t i = 0; i < 2; i++)
+    for (size_t i = 0; i < warmup_num; i++)
     {
         int32_t sampling_rate_ = audio_fs;
         funasr::Audio audio(1);
@@ -232,7 +232,8 @@ int main(int argc, char** argv)
 
     TCLAP::ValueArg<std::string>    asr_mode("", ASR_MODE, "offline, online, 2pass", false, "2pass", "string");
     TCLAP::ValueArg<std::int32_t>   onnx_thread("", "model-thread-num", "onnxruntime SetIntraOpNumThreads", false, 1, "int32_t");
-    TCLAP::ValueArg<std::int32_t>   thread_num_("", THREAD_NUM, "multi-thread num for rtf", false, 1, "int32_t");
+    TCLAP::ValueArg<std::int32_t>   thread_num_("", THREAD_NUM, "multi-thread num for rtf", false, 1, "int32_t");    
+    TCLAP::ValueArg<std::int32_t>   warmup_num("", WARMUP_NUM, "times of warmup audios", false, 0, "int32_t");
     TCLAP::ValueArg<std::string>    wav_path("", WAV_PATH, "the input could be: wav_path, e.g.: asr_example.wav; pcm_path, e.g.: asr_example.pcm; wav.scp, kaldi style wav list (wav_id \t wav_path)", true, "", "string");
     TCLAP::ValueArg<std::int32_t>   audio_fs("", AUDIO_FS, "the sample rate of audio", false, 16000, "int32_t");
     TCLAP::ValueArg<std::string>    hotword("", HOTWORD, "the hotword file, one hotword perline, Format: Hotword Weight (could be: 阿里巴巴 20)", false, "", "string");
@@ -255,6 +256,7 @@ int main(int argc, char** argv)
     cmd.add(asr_mode);
     cmd.add(onnx_thread);
     cmd.add(thread_num_);
+    cmd.add(warmup_num);
     cmd.add(hotword);
     cmd.parse(argc, argv);
 
@@ -350,7 +352,7 @@ int main(int argc, char** argv)
     for (int i = 0; i < rtf_threds; i++)
     {
         threads.emplace_back(thread(runReg, tpass_hanlde, chunk_size, wav_list, wav_ids, audio_fs.getValue(), &total_length, &total_time, i, (ASR_TYPE)asr_mode_, nn_hotwords_,
-                                    glob_beam, lat_beam, am_sc, fst_inc_wts.getValue(), hws_map));
+                                    glob_beam, lat_beam, am_sc, fst_inc_wts.getValue(), hws_map, warmup_num.getValue()));
     }
 
     for (auto& thread : threads)

@@ -19,6 +19,8 @@ class Vocab {
     void LoadVocabFromYaml(const char* filename);
     void LoadVocabFromJson(const char* filename);
     void LoadLex(const char* filename);
+    
+    bool last_is_complete_english_ = false;    // 上一个chunk最后是否是完整英文
 
   public:
     Vocab(const char *filename);

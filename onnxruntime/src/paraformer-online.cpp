@@ -582,6 +582,10 @@ string ParaformerOnline::Forward(float* din, int len, bool input_finished, const
         }
 
         result = ForwardChunk(wav_feats, is_last_chunk);
+        if (result.size()>0 && is_last_chunk){
+            result.push_back(' ');
+        }
+
         if(input_finished){
             // reset
             ResetCache();

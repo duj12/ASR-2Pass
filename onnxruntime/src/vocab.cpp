@@ -167,9 +167,13 @@ string Vocab::Vector2StringV2(vector<int> in, std::string language)
     list<string> words;
     int is_pre_english = false;
     int pre_english_len = 0;
-    int is_combining = false;
+    int sub_word = false;  //当前词是不是英文子词
+    int is_combining = false;   //当前词是否应该和上一word拼接
     std::string combine = "";
     std::string unicodeChar = "▁";
+
+    // 如果上一个chunk以完整英文结束，下一个chunk开头是英文时要补空格
+    bool first_word_need_space = last_is_complete_english_;
 
     for (i=0; i<in.size(); i++){
         string word = vocab[in[i]];
@@ -194,19 +198,31 @@ string Vocab::Vector2StringV2(vector<int> in, std::string language)
         }
         // step2 combie phoneme to full word
         {
-            int sub_word = !(word.find("@@") == string::npos);
+            sub_word = !(word.find("@@") == string::npos);
             // process word start and middle part
             if (sub_word) {
                 // if badcase: lo@@ chinese
-                if (i == in.size()-1 || i<in.size()-1 && IsChinese(vocab[in[i+1]])){
-                    word = word.erase(word.length() - 2) + " ";
+                if(i<in.size()-1 && IsChinese(vocab[in[i+1]])){
+                    word = word.erase(word.length() - 2) +" ";
                     if (is_combining) {
                         combine += word;
                         is_combining = false;
                         word = combine;
                         combine = "";
                     }
-                }else{
+                }
+                // 最后一个是英文子词，不能加空格
+                else if (i==in.size()-1){
+                    word = word.erase(word.length() - 2);
+                    if (is_combining) {
+                        combine += word;
+                        is_combining = false;
+                        word = combine;
+                        combine = "";
+                    }
+                    last_is_complete_english_ = false;
+                }
+                else{
                     combine += word.erase(word.length() - 2);
                     is_combining = true;
                     continue;
@@ -230,6 +246,11 @@ string Vocab::Vector2StringV2(vector<int> in, std::string language)
             }
             // input word is english word
             else {
+
+                if (!is_pre_english && first_word_need_space) {
+                    words.push_back(" ");
+                }
+
                 // pre word is chinese
                 if (!is_pre_english) {
                     // word[0] = word[0] - 32;
@@ -258,6 +279,12 @@ string Vocab::Vector2StringV2(vector<int> in, std::string language)
                 }
                 is_pre_english = true;
             }
+        }
+        if (i==in.size()-1 && ! IsChinese(word) && ! sub_word){
+            last_is_complete_english_ = true;
+        }
+        else{
+            last_is_complete_english_ = false;
         }
     }
 
