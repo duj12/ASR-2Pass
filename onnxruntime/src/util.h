@@ -2,6 +2,9 @@
 #define UTIL_H
 #include <vector>
 #include <memory>
+#include <cmath>
+#include <limits>
+#include <queue>
 #include <unordered_map>
 #include <deque>
 #include "tensor.h"
@@ -10,6 +13,11 @@ using namespace std;
 
 namespace funasr {
 typedef unsigned short          U16CHAR_T;
+
+const float kFloatMax = std::numeric_limits<float>::max();
+// kSpaceSymbol in UTF-8 is: ▁
+const char kSpaceSymbol[] = "\xe2\x96\x81";
+
 extern float *LoadParams(const char *filename);
 
 extern void SaveDataFile(const char *filename, void *data, uint32_t len);
@@ -29,6 +37,49 @@ extern void BasicNorm(Tensor<float> *&din, float norm);
 extern void FindMax(float *din, int len, float &max_val, int &max_idx);
 
 extern void Glu(Tensor<float> *din, Tensor<float> *dout);
+
+template <typename T>
+struct ValueComp {
+  bool operator()(const std::pair<T, int32_t>& lhs,
+                  const std::pair<T, int32_t>& rhs) const {
+    return lhs.first > rhs.first ||
+           (lhs.first == rhs.first && lhs.second < rhs.second);
+  }
+};
+// We refer the pytorch topk implementation
+// https://github.com/pytorch/pytorch/blob/master/caffe2/operators/top_k.cc
+template <typename T>
+void TopK(const std::vector<T>& data, int32_t k, std::vector<T>* values,
+          std::vector<int>* indices) {
+  std::vector<std::pair<T, int32_t>> heap_data;
+  int n = data.size();
+  for (int32_t i = 0; i < k && i < n; ++i) {
+    heap_data.emplace_back(data[i], i);
+  }
+  std::priority_queue<std::pair<T, int32_t>, std::vector<std::pair<T, int32_t>>,
+                      ValueComp<T>> pq(ValueComp<T>(), std::move(heap_data));
+  for (int32_t i = k; i < n; ++i) {
+    if (pq.top().first < data[i]) {
+      pq.pop();
+      pq.emplace(data[i], i);
+    }
+  }
+
+  values->resize(std::min(k, n));
+  indices->resize(std::min(k, n));
+  int32_t cur = values->size() - 1;
+  while (!pq.empty()) {
+    const auto& item = pq.top();
+    (*values)[cur] = item.first;
+    (*indices)[cur] = item.second;
+    pq.pop();
+    cur -= 1;
+  }
+}
+
+template void TopK<float>(const std::vector<float>& data, int32_t k,
+                          std::vector<float>* values,
+                          std::vector<int>* indices);
 
 string PathAppend(const string &p1, const string &p2);
 bool is_target_file(const std::string& filename, const std::string target);

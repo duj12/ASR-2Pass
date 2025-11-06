@@ -89,4 +89,59 @@ void split_string(const std::string& str, const std::string& delim,
   output->emplace_back(s);
 }
 
+void SplitUTF8StringToChars(const std::string& str,
+                            std::vector<std::string>* chars) {
+  chars->clear();
+  int bytes = 1;
+  for (size_t i = 0; i < str.length(); i += bytes) {
+    // assert((str[i] & 0xF8) <= 0xF0);
+    if ((str[i] & 0x80) == 0x00) {
+      // The first 128 characters (US-ASCII) in UTF-8 format only need one byte.
+      bytes = 1;
+    } else if ((str[i] & 0xE0) == 0xC0) {
+      // The next 1,920 characters need two bytes to encode,
+      // which covers the remainder of almost all Latin-script alphabets.
+      bytes = 2;
+    } else if ((str[i] & 0xF0) == 0xE0) {
+      // Three bytes are needed for characters in the rest of
+      // the Basic Multilingual Plane, which contains virtually all characters
+      // in common use, including most Chinese, Japanese and Korean characters.
+      bytes = 3;
+    } else if ((str[i] & 0xF8) == 0xF0) {
+      // Four bytes are needed for characters in the other planes of Unicode,
+      // which include less common CJK characters, various historic scripts,
+      // mathematical symbols, and emoji (pictographic symbols).
+      bytes = 4;
+    }
+    chars->push_back(str.substr(i, bytes));
+  }
+}
+
+int UTF8StringLength(const std::string& str) {
+  int len = 0;
+  int bytes = 1;
+  for (size_t i = 0; i < str.length(); i += bytes) {
+    if ((str[i] & 0x80) == 0x00) {
+      bytes = 1;
+    } else if ((str[i] & 0xE0) == 0xC0) {
+      bytes = 2;
+    } else if ((str[i] & 0xF0) == 0xE0) {
+      bytes = 3;
+    } else if ((str[i] & 0xF8) == 0xF0) {
+      bytes = 4;
+    }
+    ++len;
+  }
+  return len;
+}
+
+bool IsAlpha(const std::string& str) {
+  for (size_t i = 0; i < str.size(); i++) {
+    if (!isalpha(str[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace funasr

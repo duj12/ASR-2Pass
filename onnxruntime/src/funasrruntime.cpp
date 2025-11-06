@@ -257,7 +257,7 @@
 		std::string lang = (offline_stream->asr_handle)->GetLang();
 		while (audio.FetchDynamic(buff, len, flag, start_time, batch_size, batch_in) > 0) {
 			// dec reset
-			funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)dec_handle;
+			funasr::Decoder* wfst_decoder = (funasr::Decoder*)dec_handle;
 			if (wfst_decoder){
 				wfst_decoder->StartUtterance();
 			}
@@ -389,7 +389,7 @@
 		std::string lang = (offline_stream->asr_handle)->GetLang();
 		while (audio.FetchDynamic(buff, len, flag, start_time, batch_size, batch_in) > 0) {
 			// dec reset
-			funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)dec_handle;
+			funasr::Decoder* wfst_decoder = (funasr::Decoder*)dec_handle;
 			if (wfst_decoder){
 				wfst_decoder->StartUtterance();
 			}
@@ -569,7 +569,7 @@
 		std::string cur_stamp = "[";		
 		while(audio->FetchTpass(frame) > 0){
 			// dec reset
-			funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)dec_handle;
+			funasr::Decoder* wfst_decoder = (funasr::Decoder*)dec_handle;
 			if (wfst_decoder){
 				wfst_decoder->StartUtterance();
 			}
@@ -758,7 +758,7 @@
 	{
 		funasr::Model* recog_obj = (funasr::Model*)handle;
 		recog_obj->StartUtterance();
-		funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)dec_handle;
+		funasr::Decoder* wfst_decoder = (funasr::Decoder*)dec_handle;
 		if (wfst_decoder)
 			wfst_decoder->StartUtterance();
 	}
@@ -767,7 +767,7 @@
 	{
 		funasr::OfflineStream* recog_obj = (funasr::OfflineStream*)handle;
 		recog_obj->asr_handle->StartUtterance();
-		funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)dec_handle;
+		funasr::Decoder* wfst_decoder = (funasr::Decoder*)dec_handle;
 		if (wfst_decoder)
 			wfst_decoder->StartUtterance();
 	}
@@ -835,7 +835,7 @@
 
 	_FUNASRAPI FUNASR_DEC_HANDLE FunASRWfstDecoderInit(FUNASR_HANDLE handle, int asr_type, float glob_beam, float lat_beam, float am_scale)
 	{
-		funasr::WfstDecoder* mm = nullptr;
+		funasr::Decoder* mm = nullptr;
 		if (asr_type == ASR_OFFLINE) {
 			funasr::OfflineStream* offline_stream = (funasr::OfflineStream*)handle;
 			auto paraformer = dynamic_cast<funasr::WfstDecodable*>(offline_stream->asr_handle.get());
@@ -843,6 +843,9 @@
 				if (paraformer->GetLm()){
 					mm = new funasr::WfstDecoder(paraformer->GetLm().get(),
 						paraformer->GetPhoneSet(), paraformer->GetLmVocab(), glob_beam, lat_beam, am_scale);
+				}
+				else{
+					mm = new funasr::CtcPrefixDecoder(paraformer->GetVocab(), glob_beam, lat_beam);
 				}
 				return mm;
 			}
@@ -852,6 +855,9 @@
 				if (paraformer_torch->GetLm()){
 					mm = new funasr::WfstDecoder(paraformer_torch->GetLm().get(),
 						paraformer_torch->GetPhoneSet(), paraformer_torch->GetLmVocab(), glob_beam, lat_beam, am_scale);
+				}
+				else{
+					mm = new funasr::CtcPrefixDecoder(paraformer_torch->GetVocab(), glob_beam, lat_beam);
 				}
 				return mm;
 			}
@@ -865,6 +871,9 @@
 					mm = new funasr::WfstDecoder(paraformer->GetLm().get(),
 						paraformer->GetPhoneSet(), paraformer->GetLmVocab(), glob_beam, lat_beam, am_scale);
 				}
+				else{
+					mm = new funasr::CtcPrefixDecoder(paraformer->GetVocab(), glob_beam, lat_beam);
+				}
 				return mm;
 			}
 			#ifdef USE_GPU
@@ -873,6 +882,9 @@
 				if (paraformer_torch->GetLm()){
 					mm = new funasr::WfstDecoder(paraformer_torch->GetLm().get(),
 						paraformer_torch->GetPhoneSet(), paraformer_torch->GetLmVocab(), glob_beam, lat_beam, am_scale);
+				}
+				else{
+					mm = new funasr::CtcPrefixDecoder(paraformer_torch->GetVocab(), glob_beam, lat_beam);
 				}
 				return mm;
 			}
@@ -883,7 +895,7 @@
 
 	_FUNASRAPI void FunASRWfstDecoderUninit(FUNASR_DEC_HANDLE handle)
 	{
-		funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)handle;
+		funasr::Decoder* wfst_decoder = (funasr::Decoder*)handle;
 		if (!wfst_decoder)
 			return;
 		delete wfst_decoder;
@@ -891,14 +903,14 @@
 
 	_FUNASRAPI void FunWfstDecoderLoadHwsRes(FUNASR_DEC_HANDLE handle, int inc_bias, unordered_map<string, int> &hws_map)
 	{
-		funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)handle;
+		funasr::Decoder* wfst_decoder = (funasr::Decoder*)handle;
 		if (!wfst_decoder)
 			return;
 		wfst_decoder->LoadHwsRes(inc_bias, hws_map);
 	}
 	_FUNASRAPI void FunWfstDecoderUnloadHwsRes(FUNASR_DEC_HANDLE handle)
 	{
-		funasr::WfstDecoder* wfst_decoder = (funasr::WfstDecoder*)handle;
+		funasr::Decoder* wfst_decoder = (funasr::Decoder*)handle;
 		if (!wfst_decoder)
 			return;
 		wfst_decoder->UnloadHwsRes();

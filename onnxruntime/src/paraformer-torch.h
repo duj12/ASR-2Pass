@@ -70,7 +70,7 @@ namespace funasr {
         // Vocab* GetLmVocab();
         // PhoneSet* GetPhoneSet();
         std::shared_ptr<fst::Fst<fst::StdArc>> GetLm() const override { return lm_; }
-        Vocab* GetVocab() { return vocab; }
+        Vocab* GetVocab() const override { return vocab; }
         PhoneSet* GetPhoneSet() const override { return phone_set_; }
         Vocab* GetLmVocab() const override { return lm_vocab; }
 		

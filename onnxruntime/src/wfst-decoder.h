@@ -7,6 +7,7 @@
 #include "bias-lm.h"
 #include "phone-set.h"
 #include "util.h"
+#include "decoder.h"
 
 #define MAX_SCORE 10.0f
 namespace funasr {
@@ -55,7 +56,7 @@ struct DecodeOptions : public kaldi::LatticeFasterDecoderConfig {
   float acoustic_scale;
 };
 
-class WfstDecoder {
+class WfstDecoder: public Decoder {
  public:
   WfstDecoder(fst::Fst<fst::StdArc>* lm,
               PhoneSet* phone_set,
@@ -64,10 +65,11 @@ class WfstDecoder {
               float lat_beam,
               float am_scale);
   ~WfstDecoder();
-  void StartUtterance();
-  void EndUtterance();
-  string Search(float *in, int len, int64_t token_nums);
-  string FinalizeDecode(bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
+  void StartUtterance() override;
+  void EndUtterance() override;
+  string Search(float *in, int len, int64_t token_nums) override;
+  string FinalizeDecode(bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0}) override;
+  
   void LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_map);
   void UnloadHwsRes();
    

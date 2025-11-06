@@ -66,10 +66,11 @@ namespace funasr {
         // PhoneSet* GetPhoneSet();        
         void InitLm(const std::string &lm_file, const std::string &lm_cfg_file, const std::string &lex_file, const std::string &token_file);
 
-        string BeamSearch(WfstDecoder* &wfst_decoder, float* in, int n_len, int64_t token_nums);
-        string FinalizeDecode(WfstDecoder* &wfst_decoder);
+        string BeamSearch(Decoder* &wfst_decoder, float* in, int n_len, int64_t token_nums);
+        string CTCPrefixBeamSearch(Decoder* &wfst_decoder, float *in, int len, int64_t token_nums);
+        string FinalizeDecode(Decoder* &wfst_decoder);
         std::shared_ptr<fst::Fst<fst::StdArc>> GetLm() const override { return lm_; }
-        Vocab* GetVocab() { return vocab; }
+        Vocab* GetVocab() const override { return vocab; }
         PhoneSet* GetPhoneSet() const override { return phone_set_; }
         Vocab* GetLmVocab() const override { return lm_vocab; }
 

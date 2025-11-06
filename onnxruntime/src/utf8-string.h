@@ -41,6 +41,12 @@ std::string trim(const std::string& str);
 void split_string(const std::string& str, const std::string& delim,
                   std::vector<std::string>* output);
 
+void SplitUTF8StringToChars(const std::string& str,
+                            std::vector<std::string>* chars);
+int UTF8StringLength(const std::string& str);
+bool IsAlpha(const std::string& str);
+
+
 }  // namespace funasr
 
 #endif  // UTILS_UTF8_STRING_H_

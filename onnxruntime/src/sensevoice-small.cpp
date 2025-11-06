@@ -375,6 +375,7 @@ string SenseVoiceSmall::CTCSearch(float * in, std::vector<int32_t> paraformer_le
     // return str_lang + str_emo + str_event + " " + text;
 }
 
+
 inline void LogSoftmaxInplace(std::vector<float>& logits) {
   // 数值稳定版 log-softmax
   float max_val = *std::max_element(logits.begin(), logits.end());
@@ -387,7 +388,7 @@ inline void LogSoftmaxInplace(std::vector<float>& logits) {
     v -= log_sum_exp;  // log-softmax 结果
   }
 }
-string SenseVoiceSmall::BeamSearch(WfstDecoder* &wfst_decoder, float *in, int len, int64_t token_nums)
+string SenseVoiceSmall::CTCPrefixBeamSearch(Decoder* &wfst_decoder, float *in, int len, int64_t token_nums)
 {   
     std:string text = "";
     if (len < 4){
@@ -433,7 +434,53 @@ string SenseVoiceSmall::BeamSearch(WfstDecoder* &wfst_decoder, float *in, int le
     return str_lang + str_emo + str_event + " " + text;
 }
 
-string SenseVoiceSmall::FinalizeDecode(WfstDecoder* &wfst_decoder)
+string SenseVoiceSmall::BeamSearch(Decoder* &wfst_decoder, float *in, int len, int64_t token_nums)
+{   
+    std:string text = "";
+    if (len < 4){
+        return text;
+    }
+    std::vector<std::vector<float>> logp_vec;
+    std::vector<std::vector<float>> ctc_logp;
+    logp_vec.reserve(len);
+    for (int i = 0; i < len; ++i) {
+        std::vector<float> logits(in + i * token_nums, in + (i + 1) * token_nums);
+        LogSoftmaxInplace(logits);  // in-place 计算 log-softmax
+        logp_vec.push_back(std::move(logits));
+    }
+    // process the first 4 ce loss token
+    string str_lang = "";
+    string str_emo = "";
+    string str_event = "";
+    string str_itn = "";
+    if(logp_vec.size() >=4){
+        std::vector<int> token;
+        for (int i=0; i<=3; i++){
+            int cur_best = std::max_element(logp_vec[i].begin(), logp_vec[i].end()) - logp_vec[i].begin();
+            token.push_back(cur_best);
+        }
+        str_lang  = vocab->Id2String(token[0]);
+        str_emo   = vocab->Id2String(token[1]);
+        str_event = vocab->Id2String(token[2]);
+        str_itn = vocab->Id2String(token[3]);
+
+        ctc_logp = std::vector<std::vector<float>>(logp_vec.begin()+4, logp_vec.end());
+
+        text = wfst_decoder->CtcSearch(ctc_logp);
+    }
+
+    
+    if(str_itn == "<|withitn|>"){
+        if(str_lang == "<|zh|>"){
+            text += "。";
+        }else{
+            text += ".";
+        }
+    }
+    return str_lang + str_emo + str_event + " " + text;
+}
+
+string SenseVoiceSmall::FinalizeDecode(Decoder* &wfst_decoder)
 {
     return wfst_decoder->CtcFinalizeDecode();
 }
@@ -516,7 +563,7 @@ std::vector<std::string> SenseVoiceSmall::Forward(float** din, int* len, bool in
 {
     std::vector<std::string> results;
     string result="";
-    WfstDecoder* wfst_decoder = (WfstDecoder*)decoder_handle;
+    Decoder* wfst_decoder = (Decoder*)decoder_handle;
     int32_t in_feat_dim = fbank_opts_.mel_opts.num_bins;
 
     if(batch_in != 1){
@@ -594,7 +641,13 @@ std::vector<std::string> SenseVoiceSmall::Forward(float** din, int* len, bool in
         std:vector<int32_t> output_len;
         output_len.push_back(int(outputShape[1]));
         if (lm_ == nullptr) {
-            result = CTCSearch(floatData, output_len, outputShape);
+            if (decoder_handle == nullptr) {
+                result = CTCSearch(floatData, output_len, outputShape);
+            }
+            else{
+                result = CTCPrefixBeamSearch(wfst_decoder, floatData, output_len[0], outputShape[2]);
+            }
+            
 		} else {
             result = BeamSearch(wfst_decoder, floatData, output_len[0], outputShape[2]);
             if (input_finished) {

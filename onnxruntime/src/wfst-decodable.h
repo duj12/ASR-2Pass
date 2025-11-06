@@ -24,6 +24,7 @@ public:
     virtual std::shared_ptr<fst::Fst<fst::StdArc>> GetLm() const = 0;
     virtual PhoneSet* GetPhoneSet() const = 0;
     virtual Vocab* GetLmVocab() const = 0;
+    virtual Vocab* GetVocab() const = 0;
 };
 
 }  // namespace funasr
