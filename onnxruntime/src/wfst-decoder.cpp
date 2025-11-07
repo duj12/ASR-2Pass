@@ -139,8 +139,8 @@ string WfstDecoder::CtcSearch(std::vector<std::vector<float>> logp_vec) {
     fst::GetLinearSymbolSequence(lat, &alignment, &words, &weight);
 
     std::vector<int> inputs, times;
-    ConvertToInputs(alignment, &inputs, &times);
-    result = vocab_->Vector2StringV2(words);
+    result = ConvertToText(alignment, &inputs, &words, &times);
+   
   }
 
   return result;
@@ -170,18 +170,19 @@ string WfstDecoder::CtcFinalizeDecode() {
     fst::ConvertNbestToVector(nbest_lat, &nbest_lats);
   }
 
-  std::vector<int> alignment, words;
+  std::vector<int> alignment, words, inputs;
   kaldi::LatticeWeight weight;
   fst::GetLinearSymbolSequence(nbest_lats[0], &alignment, &words, &weight);
-  ConvertToInputs(alignment, &alignment);
-
-  result = vocab_->Vector2StringV2(words);
+  ConvertToText(alignment, &inputs, &words);
+  
   return result;
 }
 
-void WfstDecoder::ConvertToInputs(const std::vector<int>& alignment,
+std::string WfstDecoder::ConvertToText(const std::vector<int>& alignment,
                                   std::vector<int>* input,
+                                  std::vector<int>* words,
                                   std::vector<int>* time) {
+  std:: string result;
   input->clear();
   if (time != nullptr) time->clear();
 
@@ -199,6 +200,24 @@ void WfstDecoder::ConvertToInputs(const std::vector<int>& alignment,
       time->push_back(decoded_frames_mapping_[cur]);
     }
   }
+
+    // option 1, we use the phone_set, ie CTC model's token units to build output
+  for (size_t i = 0; i < input->size(); ++i) {
+    string cur_str = phone_set_->Id2String(input->at(i));
+    string from = "▁";
+    string to = " ";
+    size_t pos = 0;
+    while ((pos = cur_str.find(from, pos)) != std::string::npos) {
+        cur_str.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+    result+= cur_str;
+  }
+  
+  // option 2. we use the words, ie the LM's token units to build output
+  //result = vocab_->Vector2StringV2(words);
+  return result;
+
 }
 
 void WfstDecoder::LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_map) {

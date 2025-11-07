@@ -231,7 +231,16 @@ std::string CtcPrefixDecoder::CtcSearch(std::vector<std::vector<float>> logp) {
 std::string CtcPrefixDecoder::CtcFinalizeDecode() { 
   UpdateFinalContext(); 
   UpdateResult();
-  return result_[0].sentence;
+  string result = result_[0].sentence;
+  string from = "▁";
+    string to = " ";
+    size_t pos = 0;
+    while ((pos = result.find(from, pos)) != std::string::npos) {
+        result.replace(pos, from.length(), to);
+        pos += to.length();
+    }
+
+  return result;
 }
 
 void CtcPrefixDecoder::UpdateFinalContext() {

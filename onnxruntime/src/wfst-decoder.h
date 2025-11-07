@@ -75,8 +75,9 @@ class WfstDecoder: public Decoder {
    
   std::string CtcSearch(std::vector<std::vector<float>> ctc_logp);
   std::string CtcFinalizeDecode();
-  void ConvertToInputs(const std::vector<int>& alignment,
+  std::string ConvertToText(const std::vector<int>& alignment,
                        std::vector<int>* input,
+                       std::vector<int>* output,
                        std::vector<int>* time = nullptr);
 
  private:
