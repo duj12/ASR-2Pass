@@ -128,6 +128,10 @@ class CtcPrefixDecoder: public Decoder {
 
   void StartUtterance() override;
   void EndUtterance() override;
+  
+  void LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_map) override;
+  void UnloadHwsRes() override;
+
   std::string CtcSearch(std::vector<std::vector<float>> logp) override; 
   std::string CtcFinalizeDecode() override;
   void Reset();

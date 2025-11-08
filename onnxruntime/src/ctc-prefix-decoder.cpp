@@ -19,6 +19,7 @@
 #include <utility>
 #include "decoder.h"
 #include "ctc-prefix-decoder.h"
+#include "context_graph.h"
 #include "util.h"
 
 namespace funasr {
@@ -69,6 +70,37 @@ void CtcPrefixDecoder::Reset() {
 void  CtcPrefixDecoder::ResetContext(std::shared_ptr<ContextGraph>& context_graph){
   context_graph_ = context_graph;
 }
+
+void CtcPrefixDecoder::LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_map) {
+  try {
+    if (!hws_map.empty()) {
+      ContextConfig config;
+      config.context_score = inc_bias;
+      std::shared_ptr<fst::SymbolTable> vocab_sym_table = std::shared_ptr<fst::SymbolTable>(new fst::SymbolTable("vocab_sym_table"));
+      for (int i = 0; i < vocab_->Size(); ++i) {
+        std::string token = vocab_->Id2String(i);
+        vocab_sym_table->AddSymbol(token, i);
+      }
+      std::vector<std::string> hotwords;
+      for (const auto& it : hws_map) {
+        hotwords.emplace_back(it.first);
+      }
+      std::shared_ptr<ContextGraph> context_graph = std::make_shared<ContextGraph>(config);
+      context_graph->BuildContextGraph(hotwords, vocab_sym_table, false);
+      ResetContext(context_graph);
+    }
+  } catch (std::exception const &e) {
+        LOG(ERROR) << "Error when load wfst hotwords resource: " << e.what();
+        exit(0);
+  }
+}
+
+void CtcPrefixDecoder::UnloadHwsRes() {
+  if (context_graph_) {
+    context_graph_.reset();
+  }
+}
+
 
 static bool PrefixScoreCompare(
     const std::pair<std::vector<int>, PrefixScore>& a,
