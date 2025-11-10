@@ -1064,26 +1064,29 @@ void ExtractHws(string hws_file, unordered_map<string, int> &hws_map, string& nn
             continue;
         }
         float score = 1.0f;
+        std::string hotword = "";
         std::vector<std::string> text;
         SplitStringToVector(line, " ", true, &text);
         
         if (text.size() > 1) {
-            try{
+            try
+            {
                 score = std::stof(text[text.size() - 1]);
+                for (size_t i = 0; i < text.size()-1; ++i) {
+                    hotword = hotword + text[i];
+                    if(i != text.size()-2){
+                        hotword = hotword + " ";
+                    }
+                }
             }catch (std::exception const &e)
             {
                 LOG(ERROR)<<e.what();
                 continue;
             }
         } else {
-            continue;
-        }
-        std::string hotword = "";
-        for (size_t i = 0; i < text.size()-1; ++i) {
-            hotword = hotword + text[i];
-            if(i != text.size()-2){
-                hotword = hotword + " ";
-            }
+            score = 20.0f; // default hotword score
+            hotword = text[0];
+            // continue;
         }
         
         nn_hotwords_ += " " + hotword;
