@@ -33,7 +33,7 @@ ContextGraph::ContextGraph(ContextConfig config) : config_(config) {}
 void ContextGraph::BuildContextGraph(
     const std::vector<std::string>& query_contexts,
     const std::shared_ptr<fst::SymbolTable>& symbol_table,
-    bool use_lm_symbols) {
+    const std::vector<float>& context_scores) {
   CHECK(symbol_table != nullptr) << "Symbols table should not be nullptr!";
   start_tag_id_ = symbol_table->AddSymbol("<context>");
   end_tag_id_ = symbol_table->AddSymbol("</context>");
@@ -51,16 +51,18 @@ void ContextGraph::BuildContextGraph(
 
   LOG(INFO) << "Contexts count size: " << query_contexts.size();
   int count = 0;
+  float cur_context_score = context_scores.empty() ? 0.0f : context_scores[0];
   for (const auto& context : query_contexts) {
     if (context.size() > config_.max_context_length) {
       LOG(INFO) << "Skip long context: " << context;
       continue;
     }
+    cur_context_score = context_scores[count];
     if (++count > config_.max_contexts) break;
 
     std::vector<std::string> words;
     // Split context to words by symbol table, and build the context graph.
-    bool no_oov = SplitUTF8StringToWords(trim(context), symbol_table, &words, use_lm_symbols);
+    bool no_oov = SplitUTF8StringToWords(trim(context), symbol_table, &words, false);
     if (!no_oov) {
       LOG(WARNING) << "Ignore unknown word found during compilation.";
       continue;
@@ -72,7 +74,7 @@ void ContextGraph::BuildContextGraph(
     for (size_t i = 0; i < words.size(); ++i) {
       int word_id = symbol_table_->Find(words[i]);
       float score = (i * config_.incremental_context_score
-                     + config_.context_score) * UTF8StringLength(words[i]);
+                     + cur_context_score) * UTF8StringLength(words[i]);
       next_state = (i < words.size() - 1) ? ofst->AddState() : start_state;
       ofst->AddArc(prev_state,
                    fst::StdArc(word_id, word_id, score, next_state));

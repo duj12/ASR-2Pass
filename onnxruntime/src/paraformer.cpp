@@ -125,20 +125,24 @@ void Paraformer::InitAsr(const std::string &en_model, const std::string &de_mode
     for (auto& item : de_strOutputNames)
         de_szOutputNames_.push_back(item.c_str());
 
-    vocab = new Vocab(token_file.c_str());
+    online_vocab = new Vocab(token_file.c_str());
     phone_set_ = new PhoneSet(token_file.c_str());
     LoadCmvn(am_cmvn.c_str());
 }
 
 // 2pass
 void Paraformer::InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, 
-    const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num){
+    const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, 
+    const std::string &online_token_file, int thread_num, const std::string & online_config){
     // online
-    InitAsr(en_model, de_model, am_cmvn, am_config, online_token_file, thread_num);
+    InitAsr(en_model, de_model, am_cmvn, online_config, online_token_file, thread_num);
 
     // offline
     try {
         m_session_ = std::make_unique<Ort::Session>(env_, ORTSTRING(am_model).c_str(), session_options_);
+        vocab = new Vocab(token_file.c_str());        
+        LoadConfigFromYaml(am_config.c_str());   // use offline model's config
+	    // phone_set_ = new PhoneSet(token_file.c_str());
         LOG(INFO) << "Successfully load model from " << am_model;
     } catch (std::exception const &e) {
         LOG(ERROR) << "Error when load am onnx model: " << e.what();
@@ -276,6 +280,9 @@ Paraformer::~Paraformer()
     if(vocab){
         delete vocab;
     }
+    if(online_vocab){
+        delete online_vocab;
+    }
     if(lm_vocab){
         delete lm_vocab;
     }
@@ -349,6 +356,30 @@ void Paraformer::LoadCmvn(const char *filename)
                 continue;
             }
         }
+    }
+}
+
+string Paraformer::OnlineGreedySearch(float * in, int n_len,  int64_t token_nums, bool is_stamp, std::vector<float> us_alphas, std::vector<float> us_cif_peak)
+{
+    vector<int> hyps;
+    int Tmax = n_len;
+    for (int i = 0; i < Tmax; i++) {
+        int max_idx;
+        float max_val;
+        FindMax(in + i * token_nums, token_nums, max_val, max_idx);
+        hyps.push_back(max_idx);
+    }
+    if(!is_stamp){
+        return online_vocab->Vector2StringV2(hyps);
+    }else{
+        std::vector<string> char_list;
+        std::vector<std::vector<float>> timestamp_list;
+        std::string res_str;
+        online_vocab->Vector2String(hyps, char_list);
+        std::vector<string> raw_char(char_list);
+        TimestampOnnx(us_alphas, us_cif_peak, char_list, res_str, timestamp_list);
+
+        return PostProcess(raw_char, timestamp_list);
     }
 }
 

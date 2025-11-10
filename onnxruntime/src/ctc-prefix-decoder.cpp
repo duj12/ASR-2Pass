@@ -82,11 +82,13 @@ void CtcPrefixDecoder::LoadHwsRes(int inc_bias, unordered_map<string, int> &hws_
         vocab_sym_table->AddSymbol(token, i);
       }
       std::vector<std::string> hotwords;
+      std::vector<float> hotword_scores;
       for (const auto& it : hws_map) {
         hotwords.emplace_back(it.first);
+        hotword_scores.emplace_back(static_cast<float>(it.second));
       }
       std::shared_ptr<ContextGraph> context_graph = std::make_shared<ContextGraph>(config);
-      context_graph->BuildContextGraph(hotwords, vocab_sym_table, false);
+      context_graph->BuildContextGraph(hotwords, vocab_sym_table, hotword_scores);
       ResetContext(context_graph);
     }
   } catch (std::exception const &e) {

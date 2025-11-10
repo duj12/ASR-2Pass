@@ -33,7 +33,8 @@ parser.add_argument("--chunk_interval",
 parser.add_argument("--hotword",
                     type=str,
                     default="",
-                    help="hotword file path, one hotword perline (e.g.:阿里巴巴 20)")
+                    help="hotword file path, one hotword perline (e.g.:阿里巴巴 20). "
+                    "For good recognition result, the hotword score should better be lower than 50.")
 parser.add_argument("--audio_in",
                     type=str,
                     default=None,
@@ -69,12 +70,19 @@ parser.add_argument("--use_itn",
                     help="1 for using itn, 0 for not itn")
 parser.add_argument("--vad_tail_sil",
                     type=int,
-                    default=800,
-                    help="tail silence length for VAD, if silence time exceed this value, VAD will cut. in ms")
+                    default=350,
+                    help="tail silence length for VAD, in ms. "
+                    "if consecutive silence time exceed this value, VAD will cut.")
 parser.add_argument("--vad_max_len",
                     type=int,
-                    default=60000,
+                    default=20000,
                     help="max duration of a audio clip cut by VAD, in ms")
+
+parser.add_argument("--svs_lang",
+                    type=str,
+                    default='auto',
+                    help="Set language for SenseVoice model: " 
+                    "zh/中, en/英, ja/日, ko/韩, yue/粤, default=auto/自动判别语种")
 
 parser.add_argument("--mode",
                     type=str,
@@ -142,7 +150,7 @@ async def record_microphone():
     
     message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval,
                           "wav_name": "microphone", "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
-                          "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len,})
+                          "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, "svs_lang": args.svs_lang})
     #voices.put(message)
     await websocket.send(message)
     while True:
@@ -224,7 +232,7 @@ async def record_from_scp(chunk_begin, chunk_size):
         # send first time
         message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "audio_fs":sample_rate,
                           "wav_name": wav_name, "wav_format": wav_format,  "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
-                          "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, })
+                          "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, "svs_lang": args.svs_lang})
         #voices.put(message)
         await websocket.send(message)
         is_speaking = True

@@ -22,10 +22,13 @@ fi
 
 
 download_model_dir="models"
-model_dir="iic/SenseVoiceSmall-onnx" 
+# model_dir="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-onnx"            # offline base model
+# model_dir="damo/speech_paraformer-large-contextual_asr_nat-zh-cn-16k-common-vocab8404-onnx" # hotword model
+model_dir="damo/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-onnx"   # timestamp model and hotword
+
 # the online model is better to use the small one, if you want to use the large, comment the small model line.
 online_model_dir="damo/speech_paraformer-large_asr_nat-zh-cn-16k-common-vocab8404-online-onnx"  # large online model
-online_model_dir="thuduj12/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online-onnx"        # small online model
+online_model_dir="thuduj12/speech_paraformer_asr_nat-zh-cn-16k-common-vocab8404-online-onnx"    # small online model
 vad_dir="damo/speech_fsmn_vad_zh-cn-16k-common-onnx"
 # punc_dir="damo/punc_ct-transformer_zh-cn-common-vad_realtime-vocab272727-onnx"                # online punc model
 punc_dir="damo/punc_ct-transformer_zh-cn-common-vocab272727-onnx"                             # offline punc model
@@ -35,7 +38,7 @@ hotword="$(pwd)/hotwords.txt"
 
 decoder_thread_num=16
 io_thread_num=4
-port=10096
+port=10095
 quantize=true
 certfile="../ssl_key/server.crt"
 keyfile="../ssl_key/server.key"

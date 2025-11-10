@@ -16,11 +16,14 @@ class Model {
     virtual void StartUtterance() = 0;
     virtual void EndUtterance() = 0;
     virtual void Reset() = 0;
+    virtual string OnlineGreedySearch(float* in, int n_len, int64_t token_nums, bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0}){return "";};
     virtual string GreedySearch(float* in, int n_len, int64_t token_nums, bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0}){return "";};
     virtual void InitAsr(const std::string &am_model, const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, int thread_num){};
     virtual void InitAsr(const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, int thread_num){};
     virtual void InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, 
       const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num){};
+    virtual void InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, 
+      const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num, const std::string &online_config_file){};
     virtual void InitLm(const std::string &lm_file, const std::string &lm_config, const std::string &lex_file){};
     virtual void InitLm(const std::string &lm_file, const std::string &lm_config, const std::string &lex_file, const std::string &lm_units_path){};
     virtual void InitFstDecoder(){};

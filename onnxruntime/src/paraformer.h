@@ -21,6 +21,7 @@ namespace funasr {
     */
     private:
         Vocab* vocab = nullptr;
+        Vocab* online_vocab = nullptr;
         Vocab* lm_vocab = nullptr;
         SegDict* seg_dict = nullptr;
         PhoneSet* phone_set_ = nullptr;
@@ -48,13 +49,15 @@ namespace funasr {
         void InitAsr(const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, int thread_num);
         // 2pass
         void InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, const std::string &am_cmvn, 
-            const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num);
+            const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num,const std::string &online_config);
         void InitHwCompiler(const std::string &hw_model, int thread_num);
         void InitSegDict(const std::string &seg_dict_model);
         std::vector<std::vector<float>> CompileHotwordEmbedding(std::string &hotwords);
         void Reset();
         void FbankKaldi(float sample_rate, const float* waves, int len, std::vector<std::vector<float>> &asr_feats);
         std::vector<std::string> Forward(float** din, int* len, bool input_finished=true, const std::vector<std::vector<float>> &hw_emb={{0.0}}, void* wfst_decoder=nullptr, int batch_in=1);
+        string OnlineGreedySearch( float* in, int n_len, int64_t token_nums,
+                             bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
         string GreedySearch( float* in, int n_len, int64_t token_nums,
                              bool is_stamp=false, std::vector<float> us_alphas={0}, std::vector<float> us_cif_peak={0});
 

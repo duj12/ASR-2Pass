@@ -16,10 +16,10 @@ a.流式ASR服务，适用于流式语音输入、长音频输入。输出视音
   run_server_2pass_ssl.sh
     加载热词和时间戳版本非流式模型，流式标点模型(适用于多句文本拼接后显示，标点预测更准确)，ssl开启。默认端口10095
 
-  run_server_2pass.sh
+  run_server_2pass_para.sh
     加载热词和时间戳版本非流式模型，非流式标点模型(适用于单句文本上屏显示)，ssl关闭。默认端口10095
 
-  run_server_2pass_svs.sh
+  run_server_2pass.sh
     加载流式模型和SenseVoice模型，ssl关闭。默认端口10096
   
   

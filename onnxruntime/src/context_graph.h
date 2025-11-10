@@ -42,7 +42,7 @@ class ContextGraph {
   void FreeContextGraph();
   void BuildContextGraph(const std::vector<std::string>& query_context,
                          const std::shared_ptr<fst::SymbolTable>& symbol_table,
-                         bool use_lm_symbols);
+                         const std::vector<float>& context_scores);
   int GetNextState(int cur_state, int word_id, float* score,
                    bool* is_start_boundary, bool* is_end_boundary);
 

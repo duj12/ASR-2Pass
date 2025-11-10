@@ -127,9 +127,10 @@ void SenseVoiceSmall::InitAsr(const std::string &en_model, const std::string &de
 
 // 2pass
 void SenseVoiceSmall::InitAsr(const std::string &am_model, const std::string &en_model, const std::string &de_model, 
-    const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, const std::string &online_token_file, int thread_num){
+    const std::string &am_cmvn, const std::string &am_config, const std::string &token_file, 
+    const std::string &online_token_file, int thread_num, const std::string &online_config){
     // online
-    InitAsr(en_model, de_model, am_cmvn, am_config, online_token_file, thread_num);
+    InitAsr(en_model, de_model, am_cmvn, online_config, online_token_file, thread_num);
 
     // offline
     try {
@@ -425,13 +426,17 @@ string SenseVoiceSmall::CTCPrefixBeamSearch(Decoder* &wfst_decoder, float *in, i
 
     
     if(str_itn == "<|withitn|>"){
-        if(str_lang == "<|zh|>"){
-            text += "。";
-        }else{
-            text += ".";
+        if(str_lang == "<|en|>"){
+            text += " "; // for english, we add a space at the end
         }
     }
-    return str_lang + str_emo + str_event + " " + text;
+    else{
+        // without itn, no punctuation, we add a space at the end
+        text += " ";
+    }
+    
+    return text;   
+    // return str_lang + str_emo + str_event + " " + text;
 }
 
 string SenseVoiceSmall::BeamSearch(Decoder* &wfst_decoder, float *in, int len, int64_t token_nums)
@@ -469,15 +474,18 @@ string SenseVoiceSmall::BeamSearch(Decoder* &wfst_decoder, float *in, int len, i
         text = wfst_decoder->CtcSearch(ctc_logp);
     }
 
-    
     if(str_itn == "<|withitn|>"){
-        if(str_lang == "<|zh|>"){
-            text += "。";
-        }else{
-            text += ".";
+        if(str_lang == "<|en|>"){
+            text += " "; // for english, we add a space at the end
         }
     }
-    return str_lang + str_emo + str_event + " " + text;
+    else{
+        // without itn, no punctuation, we add a space at the end
+        text += " ";
+    }
+    
+    return text;   
+    // return str_lang + str_emo + str_event + " " + text;
 }
 
 string SenseVoiceSmall::FinalizeDecode(Decoder* &wfst_decoder)
@@ -485,7 +493,7 @@ string SenseVoiceSmall::FinalizeDecode(Decoder* &wfst_decoder)
     return wfst_decoder->CtcFinalizeDecode();
 }
 
-string SenseVoiceSmall::GreedySearch(float * in, int n_len,  int64_t token_nums, bool is_stamp, std::vector<float> us_alphas, std::vector<float> us_cif_peak)
+string SenseVoiceSmall::OnlineGreedySearch(float * in, int n_len,  int64_t token_nums, bool is_stamp, std::vector<float> us_alphas, std::vector<float> us_cif_peak)
 {
     vector<int> hyps;
     int Tmax = n_len;

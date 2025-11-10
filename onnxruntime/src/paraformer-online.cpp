@@ -512,7 +512,7 @@ string ParaformerOnline::ForwardChunk(std::vector<std::vector<float>> &chunk_fea
 
             std::vector<int64_t> decoder_shape = decoder_tensor[0].GetTensorTypeAndShapeInfo().GetShape();
             float* float_data = decoder_tensor[0].GetTensorMutableData<float>();
-            result = offline_handle_->GreedySearch(float_data, list_frame.size(), decoder_shape[2]);
+            result = offline_handle_->OnlineGreedySearch(float_data, list_frame.size(), decoder_shape[2]);
         }
     }catch (std::exception const &e)
     {
