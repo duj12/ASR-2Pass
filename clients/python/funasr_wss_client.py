@@ -136,8 +136,8 @@ async def record_microphone():
         for line in hot_lines:
             words = line.strip().split(" ")
             if len(words) < 2:
-                print("Please checkout format of hotwords")
-                continue
+                print("Please checkout format of hotwords, hotword and score, separated by space")
+                words.append('20')
             try:
                 fst_dict[" ".join(words[:-1])] = int(words[-1])
             except ValueError:
@@ -178,8 +178,8 @@ async def record_from_scp(chunk_begin, chunk_size):
         for line in hot_lines:
             words = line.strip().split(" ")
             if len(words) < 2:
-                print("Please checkout format of hotwords")
-                continue
+                print("Please checkout format of hotwords, hotword and score, separated by space")
+                words.append('20')
             try:
                 fst_dict[" ".join(words[:-1])] = int(words[-1])
             except ValueError:
