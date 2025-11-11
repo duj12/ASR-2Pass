@@ -440,8 +440,29 @@ void WebSocketServer::on_message(websocketpp::connection_hdl hdl,
                   LOG(INFO) << e.what();
                 }
               }
+              else if (json_fst_hws.is_array()) {
+                // ✅ 格式: ["hello", "world"]
+                for (auto& item : json_fst_hws) {
+                    if (item.is_string()) {
+                        merged_hws_map[item.get<std::string>()] = 20; // 默认分数
+                    }
+                }
+              } else if (json_fst_hws.is_string()) {
+                  // ✅ 格式: "hello world"
+                  std::istringstream iss(json_fst_hws.get<std::string>());
+                  std::string word;
+                  while (iss >> word) {
+                      merged_hws_map[word] = 20;
+                  }
+              }
             } catch (std::exception const &e)
             {
+              // ❌ 非JSON格式，直接当普通热词字符串
+              std::istringstream iss(json_string);
+              std::string word;
+              while (iss >> word) {
+                  merged_hws_map[word] = 20;
+              }
               LOG(ERROR)<<e.what();
               // nn
               std::string client_nn_hws = jsonresult["hotwords"];

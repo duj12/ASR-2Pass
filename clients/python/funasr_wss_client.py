@@ -175,15 +175,20 @@ async def record_from_scp(chunk_begin, chunk_size):
     if args.hotword.strip() != "":
         f_scp = open(args.hotword, encoding='utf-8')
         hot_lines = f_scp.readlines()
+        hotword_list = []
         for line in hot_lines:
             words = line.strip().split(" ")
             if len(words) < 2:
+                print ("Adding hotword:", line.strip())
+                hotword_list.append(line.strip())
                 print("Please checkout format of hotwords, hotword and score, separated by space")
                 words.append('20')
             try:
                 fst_dict[" ".join(words[:-1])] = int(words[-1])
             except ValueError:
                 print("Please checkout format of hotwords")
+                
+        # hotword_msg=" ".join(hotword_list) 服务端也支持解析空格分隔的热词
         hotword_msg=json.dumps(fst_dict)
         print (hotword_msg)
 
