@@ -63,10 +63,12 @@ ASR服务地址，填写第一步启动服务时的服务器地址和端口。�
 --audio_in is the audio file that needs to be transcribed, supporting file paths and file list wav.scp
 --thread_num sets the number of concurrent sending threads, default is 1
 --ssl sets whether to enable SSL certificate verification, default is 1 to enable, and 0 to disable
---hotword: Hotword file path or hotwords split with space, one line for each hotword(e.g.: "语音识别 热词")
+--hotword: Hotword file path, one line for each hotword and its score(e.g.: "语音识别 20")
 --use_itn: whether to use itn, the default value is 1 for enabling and 0 for disabling.
 --vad_tail_sil: the trailing silence length of VAD, in ms. If silence in an audio cilp exceed this value, it will be cut.
 --vad_max_len: the max duration of a audio segment cut by VAD, in ms. If there is no silence deteced, the audio will be cut when its duration exceed this value.
+--svs_itn: whether to use itn in SenseVoice model inference, the default value is 1 for enabling and 0 for disabling.
+--svs_lang: Set language for SenseVoice model: zh/中, en/英, ja/日, ko/韩, yue/粤, default=auto/自动判别语种
 ```
 
 5, 服务端参数配置
@@ -148,7 +150,7 @@ message为（采用json序列化）
 #### 首次通信
 message为（需要用json序列化）：
 ```text
-{"mode": "offline", "wav_name": "wav_name","wav_format":"pcm","is_speaking": True,"wav_format":"pcm","hotwords":"阿里巴巴 达摩院 阿里云"}
+{"mode": "offline", "wav_name": "wav_name","wav_format":"pcm","is_speaking": True,"wav_format":"pcm"}
 ```
 参数介绍：
 ```text
@@ -157,7 +159,7 @@ message为（需要用json序列化）：
 `wav_format`：表示音视频文件后缀名，可选pcm、mp3、mp4等
 `is_speaking`：False 表示断句尾点，例如，vad切割点，或者一条wav结束
 `audio_fs`：当输入音频为pcm数据是，需要加上音频采样率参数
-`hotwords`：如果AM为热词模型，需要向服务端发送热词数据，格式为字符串，热词之间用" "分隔，例如 "语音识别 热词 时间戳"
+`hotwords`：如要向服务端发送热词数据，将热词和对应分数写入字典，然后json序列化为字符串
 ```
 
 #### 发送音频数据

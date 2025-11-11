@@ -78,6 +78,10 @@ parser.add_argument("--vad_max_len",
                     default=20000,
                     help="max duration of a audio clip cut by VAD, in ms")
 
+parser.add_argument("--svs_itn",
+                    type=int,
+                    default=1,
+                    help="1 for SenseVoice model using itn, 0 for not itn")
 parser.add_argument("--svs_lang",
                     type=str,
                     default='auto',
@@ -149,7 +153,7 @@ async def record_microphone():
         use_itn=False
     
     message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval,
-                          "wav_name": "microphone", "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
+                          "wav_name": "microphone", "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn, "svs_itn": (args.svs_itn==1),
                           "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, "svs_lang": args.svs_lang})
     #voices.put(message)
     await websocket.send(message)
@@ -236,7 +240,7 @@ async def record_from_scp(chunk_begin, chunk_size):
 
         # send first time
         message = json.dumps({"mode": args.mode, "chunk_size": args.chunk_size, "chunk_interval": args.chunk_interval, "audio_fs":sample_rate,
-                          "wav_name": wav_name, "wav_format": wav_format,  "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn,
+                          "wav_name": wav_name, "wav_format": wav_format,  "is_speaking": True, "hotwords":hotword_msg, "itn": use_itn, "svs_itn": (args.svs_itn==1),
                           "vad_tail_sil": args.vad_tail_sil, "vad_max_len": args.vad_max_len, "svs_lang": args.svs_lang})
         #voices.put(message)
         await websocket.send(message)
